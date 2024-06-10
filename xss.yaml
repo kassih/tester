@@ -1,15 +1,5 @@
 swagger: '2.0'
-securityDefinitions:
-  a:
-    type: oauth2
-    authorizationUrl: javascript:alert(document.domain)//
 info:
-  version: "1.0.0"
-  title: XSS img test
-  description: <img src=x onerror="alert(3)">
-paths:
-  /:
-    get:
-      responses:
-        200:
-          description: Successful response
+  title: XSS test
+  description: |
+    <form><math><mtext></form><form><mglyph><svg><mtext><textarea><path id="</textarea><img onerror=alert(123456789) src=1>"></form>
