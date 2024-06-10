@@ -1,15 +1,5 @@
 swagger: '2.0'
 info:
-  title: Example yaml.spec
+  title: XSS test
   description: |
-    <math><mtext><option><FAKEFAKE><option></option><mglyph><svg><mtext><textarea><a title="</textarea><svg/onload=confirm(1)>">
-paths:
-  /accounts:
-    get:
-      responses:
-        '200':
-          description: No response was specified
-      tags:
-        - accounts
-      operationId: findAccounts
-      summary: Finds all accounts
+    <form><math><mtext></form><form><mglyph><svg><mtext><textarea><path id="</textarea><img onerror=alert(document.cookie) src=1>"></form>
