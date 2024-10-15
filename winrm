@@ -1,0 +1,6 @@
+Pass-the-Hash Attack through WinRM (Windows Remote Management)
+Description:
+The Pass-the-Hash (PtH) attack allows an attacker to authenticate to remote systems using the hashed value of a user's password, instead of the plaintext password itself. This technique exploits the ability to use stolen NTLM hashes to gain unauthorized access to systems. In environments where Windows Remote Management (WinRM) is enabled with NTLM authentication, an attacker can move laterally across the network without needing user passwords.
+
+Observation:
+During the test, multiple machines were successfully compromised using stolen NTLM hashes through WinRM. This indicates that the use of NTLM authentication is widespread across the network, allowing the attacker to authenticate and gain control of multiple systems without needing the plaintext credentials. The ability to reuse hashes across various systems further increases the risk of lateral movement and unauthorized access to critical infrastructure.
