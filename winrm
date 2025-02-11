@@ -8,3 +8,7 @@ To mitigate this vulnerability, implement strict validation and sanitization of 
 Disabling inline JavaScript execution within SVG files by stripping <script> and event handler attributes (e.g., onload, onclick).
 Converting SVG files to a safe format such as PNG before storage.
 Enforcing Content Security Policy (CSP) rules to prevent the execution of inline scripts.
+
+
+
+Stored XSS (Cross-Site Scripting) is a vulnerability where malicious scripts are injected into a web application and stored on the server. When other users view the affected content, the script executes in their browser, potentially leading to session hijacking, data theft, or unauthorized actions on their behalf.
