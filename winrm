@@ -1,6 +1,10 @@
-Pass-the-Hash Attack through WinRM (Windows Remote Management)
-Description:
-The Pass-the-Hash (PtH) attack allows an attacker to authenticate to remote systems using the hashed value of a user's password, instead of the plaintext password itself. This technique exploits the ability to use stolen NTLM hashes to gain unauthorized access to systems. In environments where Windows Remote Management (WinRM) is enabled with NTLM authentication, an attacker can move laterally across the network without needing user passwords.
-
+Title: Stored XSS via SVG File Upload in Policy Booklet
 Observation:
-During the test, multiple machines were successfully compromised using stolen NTLM hashes through WinRM. This indicates that the use of NTLM authentication is widespread across the network, allowing the attacker to authenticate and gain control of multiple systems without needing the plaintext credentials. The ability to reuse hashes across various systems further increases the risk of lateral movement and unauthorized access to critical infrastructure.
+During the assessment, it was found that the application allows users to upload SVG files as policy booklets. However, the file upload mechanism does not adequately sanitize SVG content, allowing for the injection of malicious JavaScript. When a user clicks on the uploaded SVG file, the embedded script executes in their browser context, leading to Stored Cross-Site Scripting (XSS). This vulnerability could be exploited to steal session tokens, perform unauthorized actions on behalf of users, or redirect them to malicious websites.
+
+Recommendation:
+To mitigate this vulnerability, implement strict validation and sanitization of uploaded SVG files by:
+
+Disabling inline JavaScript execution within SVG files by stripping <script> and event handler attributes (e.g., onload, onclick).
+Converting SVG files to a safe format such as PNG before storage.
+Enforcing Content Security Policy (CSP) rules to prevent the execution of inline scripts.
