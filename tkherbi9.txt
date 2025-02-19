@@ -1,0 +1,23 @@
+description : When MFA is enabled, users must complete both authentication factors to gain access. This is a strong security protocol. Passwords can get stolen or exposed in data breaches, but MFA codes are harder to obtain since it normally requires direct interaction with the authorized user.
+
+observation : 
+During the security assessment, it was discovered that the MFA mechanism in place is vulnerable to brute-force attacks. The web application does not implement adequate protections against repeated authentication attempts, allowing an attacker to systematically guess valid MFA codes. This issue arises due to the absence of rate limit. enabling an adversary to bypass MFA and gain unauthorized access to user accounts.
+
+remediation : 
+Rate Limiting: Introduce a strict rate limit on MFA attempts, blocking excessive failed attempts within a short period.
+Account Lockout & Alerting: Temporarily lock accounts after a predefined number of failed MFA attempts and notify users of unusual activity.
+
+resources : https://abnormalsecurity.com/glossary/mfa-bypass
+
+
+Description : 
+The identified version of Telerik UI is affected by publicly known vulnerability (CVE-2019-18935) that have been previously exploited in the wild. Attackers could leverage these vulnerabilities to execute arbitrary code on the server, potentially leading to full system compromise.
+
+observation : 
+During the security assessment, it was identified that the target application is using a vulnerable version of Telerik UI (2013.3.1114). Certain versions of Telerik UI contain known vulnerabilities that could allow an attacker to achieve remote code execution (RCE). Although this issue was not actively exploited during testing, its presence poses a significant risk if left unpatched.
+
+
+remediation : Upgrade Telerik for ASP.NET AJAX to R3 2019 SP1 (v2019.3.1023) or later.
+Read Telerik's RadAsyncUpload security guide in its entirety, and configure the control according to the recommended security settings.
+
+Resources : https://github.com/noperator/CVE-2019-18935 / https://bishopfox.com/blog/cve-2019-18935-remote-code-execution-in-telerik-ui
