@@ -21,3 +21,11 @@ remediation : Upgrade Telerik for ASP.NET AJAX to R3 2019 SP1 (v2019.3.1023) or 
 Read Telerik's RadAsyncUpload security guide in its entirety, and configure the control according to the recommended security settings.
 
 Resources : https://github.com/noperator/CVE-2019-18935 / https://bishopfox.com/blog/cve-2019-18935-remote-code-execution-in-telerik-ui
+
+
+
+Mouhssine, an experienced penetration tester and bug hunter, has been uncovering critical vulnerabilities since 2018. With over 300 security flaws reported to major companies like Google, PayPal, IBM, Dell, and Shopify, he has played a key role in strengthening digital defenses. His career has been rooted in offensive security, leading him to conduct over 200 penetration tests covering assessments, reporting, and kickoff meetings. This hands-on experience, combined with certifications such as OSCP, CRTP, and CWEE, allows him to provide valuable security insights to organizations worldwide. Mouhssine’s critical mindset and dedication to staying ahead of emerging threats make him a trusted expert in the ever-evolving cybersecurity landscape.
+
+
+
+
