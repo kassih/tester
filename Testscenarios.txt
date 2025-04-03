@@ -1,0 +1,37 @@
+Test Scenario 1: Special Character Injection Causes IVR Exception
+
+Test Attempt: During the test, we provided the input ><>'; when prompted for a name.
+Observed Behavior: Instead of processing the input, the system immediately forwarded the call to a human agent.
+Analysis: This suggests that the system may have a safeguard mechanism that redirects calls when it detects potentially malicious input, or it may have encountered an error while parsing the input.
+
+⸻
+
+Test Scenario 2: Long Input Causes Call Termination
+
+Test Attempt: We tested an excessively long name input ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA") to assess input length handling.
+Observed Behavior: The call was unexpectedly terminated without any error message or redirection to an agent.
+Analysis: The abrupt termination indicates a potential buffer overflow or improper input validation.
+
+⸻
+
+Test Scenario 3: SQL-Inspired Input Triggers Security Measure
+
+Test Attempt: When prompted for a policy number, we entered "John' OR '1'='1".
+Observed Behavior: The system did not proceed with verification and instead forwarded the call to an agent.
+Analysis: The system might have a basic security filter that detects SQL-like patterns and redirects suspicious calls. However, this also suggests that user input is being processed in a way that could lead to injection vulnerabilities.
+
+⸻
+
+Test Scenario 4: Unexpected Numerical Input Leads to Error Handling
+
+Test Attempt: Instead of a valid policy number, we entered an extremely large number (9999999999).
+Observed Behavior: The IVR system responded with an error message before automatically terminating the call.
+Analysis: The system likely has a numeric validation mechanism, but the abrupt termination suggests it may not be handling invalid inputs gracefully.
+
+⸻
+
+Test Scenario 5: Silence Attack Triggers Unexpected Redirection
+
+Test Attempt: We remained silent for 30 seconds instead of responding to the prompt.
+Observed Behavior: The system automatically redirected the call to an agent instead of retrying or terminating the call.
+Analysis: This suggests that the IVR system lacks proper timeout handling and may be relying on agent fallback in cases of unrecognized input. This could be exploited for denial-of-service (DoS) attacks by repeatedly triggering silent calls.
