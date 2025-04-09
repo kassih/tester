@@ -35,3 +35,9 @@ Test Scenario 5: Silence Attack Triggers Unexpected Redirection
 Test Attempt: We remained silent for 30 seconds instead of responding to the prompt.
 Observed Behavior: The system automatically redirected the call to an agent instead of retrying or terminating the call.
 Analysis: This suggests that the IVR system lacks proper timeout handling and may be relying on agent fallback in cases of unrecognized input. This could be exploited for denial-of-service (DoS) attacks by repeatedly triggering silent calls.
+
+
+
+
+
+The target system includes an Interactive Voice Response (IVR) platform designed to automate customer interactions over the phone. The IVR collects key user information—such as first name, last name, and policy number—through voice or keypad input.
