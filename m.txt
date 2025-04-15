@@ -1,14 +1,16 @@
-External Content Injection via Unrestricted Iframe Source
+Open Redirect via Meta Refresh Tag
+📄 Description:
+The application includes a redirect mechanism implemented using an HTML <meta http-equiv="refresh"> tag, where the destination URL is controlled by user input. Specifically, the parameter accepts a value like ;url=//evil.com, resulting in an automatic redirection to an external domain after a short delay. Since there is no validation or restriction on the target URL, an attacker can craft malicious links that appear to belong to the trusted domain but ultimately redirect users to untrusted or phishing websites.
 
-Description
-The application includes a url parameter that is used to dynamically load external content into an iframe without any domain validation or restrictions. This allows an attacker to embed a malicious or phishing website within the trusted application’s interface by simply supplying a crafted URL such as "http://portalprocesosqa.axa.com.mx/ProcessPortal/jsp/socialPortal/dashboard.jsp?url=//evil.com". While the malicious content is rendered, the browser's address bar continues to display the legitimate domain, which can mislead users into thinking they are interacting with a trusted page. This behavior poses a significant risk of phishing, brand impersonation, and user deception, as it enables attackers to present harmful content under the appearance of a legitimate site.
+🔍 Observation:
+When accessing a crafted link containing ;url=//evil.com, the page loads a meta tag such as <meta http-equiv="refresh" content="0;url=//evil.com">, which causes the browser to redirect to the external site. This behavior can be exploited by attackers to conduct phishing attacks or to trick users into interacting with malicious content after trusting the initial domain.
 
-🔍 Observation
-It was observed that the url parameter in the endpoint "http://portalprocesosqa.axa.com.mx/ProcessPortal/jsp/socialPortal/dashboard.jsp?url=//evil.com" accepts arbitrary URLs and directly injects them into an iframe on the page without validation or restriction. By supplying a value such as //evil.com, the content from the external domain is rendered inside an iframe while the browser continues to display the example.com domain. This behavior was confirmed by visiting the crafted URL and observing that the external website's content was fully displayed within the page layout.
+⚠️ Impact:
+This vulnerability enables attackers to perform phishing attacks by disguising malicious URLs as legitimate ones. A victim might click a link pointing to the trusted domain (e.g., example.com), but would be silently redirected to an attacker-controlled site. This can lead to stolen credentials, malware installation, or trust erosion for the affected application.
 
-⚠️ Impact
-This vulnerability allows attackers to embed malicious or deceptive content under the appearance of the trusted domain, increasing the risk of phishing, credential harvesting, clickjacking, and brand abuse. Victims may be tricked into believing they are interacting with legitimate functionality, which can result in the disclosure of sensitive information or unintentional actions performed on malicious content. The presence of the trusted domain in the URL bar further enhances the believability of such attacks.
+To mitigate this issue, user input used in redirection logic—especially within HTML meta tags—should be strictly validated and restricted to a predefined allowlist of trusted domains. If redirection is necessary, it should be handled server-side with proper validation and logging. Where possible, avoid using client-side redirection methods such as <meta http-equiv="refresh"> entirely, as they provide minimal control and are more prone to abuse.
 
-✅ Recommendation
-To mitigate this issue, the application should validate the url parameter against a strict allowlist of trusted internal domains before loading it into the iframe. If loading external content is not a core requirement, this feature should be disabled entirely. Additionally, output should be properly sanitized before being rendered into HTML attributes like src, and a robust Content Security Policy (CSP) should be implemented to control what content can be framed or loaded from external sources.
 
+
+Screenshot Title:
+The screenshot below shows the application rendering a <meta http-equiv="refresh" content="0;url=//evil.com"> tag in the HTML response, which triggers an automatic client-side redirection to an external domain without any validation.
