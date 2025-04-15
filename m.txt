@@ -1,71 +1,42 @@
-Unrestricted File Upload vulnerabilities occur when a web application fails to properly validate or restrict the types of files users can upload. This allows attackers to upload malicious files, such as scripts, executables, or specially crafted HTML files, which can then be executed on the server or client side.
+Vulnerability: Stored Cross-Site Scripting (XSS) via File Name
+📄 Description:
+Stored Cross-Site Scripting (XSS) occurs when untrusted input is stored by the application and later rendered in a web page without proper encoding or sanitization. In this case, the application fails to sanitize the file name when displaying it in the UI, which allows an attacker to inject and execute arbitrary JavaScript in the context of other users.
 
-In this case, the server accepted file uploads without enforcing proper file type validation, MIME type checking, or content inspection. This lack of controls may lead to severe security implications including Cross-Site Scripting (XSS), Remote Code Execution (RCE), or full server compromise depending on the server configuration and file handling logic.
+This vulnerability enables an attacker to perform malicious actions such as session hijacking, redirecting users to phishing pages, stealing credentials, or performing actions on behalf of authenticated users.
 
 🔍 Observation:
-During testing, it was observed that the file upload functionality allowed the upload of arbitrary files without restrictions on extension or content type. An attacker can upload a file such as xss.html containing the following payload:
+During testing, it was observed that when uploading a file with a specially crafted name containing JavaScript code, the payload was later executed when viewing the task where the file was listed.
+
+For example, uploading a file with the following name:
 
 html
 Copy
 Edit
-<img src=x onerror=alert('XSS')>
-Once the file is uploaded, it is accessible through a public URL (e.g., http://portalprocesosqa.axa.com.mx/portal/jsp/ecmDocument?operation=ajax_getDocumentContent&snapshotId=
-2064.d9e0dbd5-5064-4daa-bb60-e8eec0713b71&ecmServerConfigurationName=EMBEDDED_ECM_SERVER&
-documentId=lidd_10FE3396-0000-C91D-8CDD-8A757C1D7A61). When this URL is accessed in a browser, the XSS payload is executed, confirming the vulnerability.
+"><script>alert('XSS')</script>.jpg
+resulted in the payload being executed as soon as the task page was visited, confirming the presence of a Stored XSS vulnerability.
 
-This confirms that:
-
-The server does not validate file extensions or MIME types correctly.
-
-There is no content inspection or sanitization of uploaded files.
-
-Uploaded files are served directly without any security checks.
+This indicates that the application directly renders user-supplied input (the file name) into the DOM without proper HTML encoding or sanitization.
 
 ⚠️ Impact:
-The impact of unrestricted file upload can vary depending on what is done with the uploaded files. In this specific case, it allowed the attacker to host a malicious HTML file which leads to Stored Cross-Site Scripting (XSS) when accessed. This can result in:
+An attacker can exploit this vulnerability to:
 
-Session hijacking
+Execute arbitrary JavaScript in the browser of any user who views the affected page.
 
-Credential theft
+Steal session cookies or sensitive information.
 
-Redirection to malicious websites
+Perform actions on behalf of users (e.g., changing settings, submitting forms).
 
-Full control over the user's interaction with the application
+Launch further attacks such as phishing or malware delivery.
 
-If additional server-side parsing or execution is involved, the impact could escalate to Remote Code Execution (RCE) or compromise of the server.
+If an admin or privileged user views the page, the attacker may escalate their access or gain control over administrative functions.
 
 ✅ Recommendation:
-To mitigate this vulnerability, it is recommended to implement the following controls:
+To mitigate this vulnerability:
 
-Restrict allowed file types to only those necessary (e.g., .jpg, .png, .pdf), based on whitelisting.
+Always sanitize and encode user-supplied input before rendering it in the HTML context.
 
-Validate file MIME types on both client and server sides.
+Use frameworks or libraries that automatically handle output encoding.
 
-Inspect file content to ensure it matches the expected type.
+Apply context-aware output encoding (e.g., HTML entity encoding for innerHTML, JavaScript escaping for inline scripts, etc.).
 
-Rename uploaded files and remove any user-supplied extensions or names to prevent direct access.
-
-Store files outside the web root, or serve them through a handler that performs additional validation.
-
-Apply appropriate Content Security Policy (CSP) headers to mitigate XSS in case an attacker manages to bypass restrictions.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Conduct regular security reviews and testing to catch XSS in dynamic parts of the UI.
