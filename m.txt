@@ -9,7 +9,9 @@ html
 Copy
 Edit
 <img src=x onerror=alert('XSS')>
-Once the file is uploaded, it is accessible through a public URL (e.g., https://example.com/uploads/xss.html). When this URL is accessed in a browser, the XSS payload is executed, confirming the vulnerability.
+Once the file is uploaded, it is accessible through a public URL (e.g., http://portalprocesosqa.axa.com.mx/portal/jsp/ecmDocument?operation=ajax_getDocumentContent&snapshotId=
+2064.d9e0dbd5-5064-4daa-bb60-e8eec0713b71&ecmServerConfigurationName=EMBEDDED_ECM_SERVER&
+documentId=lidd_10FE3396-0000-C91D-8CDD-8A757C1D7A61). When this URL is accessed in a browser, the XSS payload is executed, confirming the vulnerability.
 
 This confirms that:
 
