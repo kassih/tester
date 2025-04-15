@@ -1,42 +1,12 @@
-Vulnerability: Stored Cross-Site Scripting (XSS) via File Name
-📄 Description:
-Stored Cross-Site Scripting (XSS) occurs when untrusted input is stored by the application and later rendered in a web page without proper encoding or sanitization. In this case, the application fails to sanitize the file name when displaying it in the UI, which allows an attacker to inject and execute arbitrary JavaScript in the context of other users.
+Description
+The application includes a url parameter that is used to dynamically load external content into an iframe without any domain validation or restrictions. This allows an attacker to embed a malicious or phishing website within the trusted application’s interface by simply supplying a crafted URL such as "http://portalprocesosqa.axa.com.mx/ProcessPortal/jsp/socialPortal/dashboard.jsp?url=//evil.com". While the malicious content is rendered, the browser's address bar continues to display the legitimate domain, which can mislead users into thinking they are interacting with a trusted page. This behavior poses a significant risk of phishing, brand impersonation, and user deception, as it enables attackers to present harmful content under the appearance of a legitimate site.
 
-This vulnerability enables an attacker to perform malicious actions such as session hijacking, redirecting users to phishing pages, stealing credentials, or performing actions on behalf of authenticated users.
+🔍 Observation
+It was observed that the url parameter in the endpoint "http://portalprocesosqa.axa.com.mx/ProcessPortal/jsp/socialPortal/dashboard.jsp?url=//evil.com" accepts arbitrary URLs and directly injects them into an iframe on the page without validation or restriction. By supplying a value such as //evil.com, the content from the external domain is rendered inside an iframe while the browser continues to display the example.com domain. This behavior was confirmed by visiting the crafted URL and observing that the external website's content was fully displayed within the page layout.
 
-🔍 Observation:
-During testing, it was observed that when uploading a file with a specially crafted name containing JavaScript code, the payload was later executed when viewing the task where the file was listed.
+⚠️ Impact
+This vulnerability allows attackers to embed malicious or deceptive content under the appearance of the trusted domain, increasing the risk of phishing, credential harvesting, clickjacking, and brand abuse. Victims may be tricked into believing they are interacting with legitimate functionality, which can result in the disclosure of sensitive information or unintentional actions performed on malicious content. The presence of the trusted domain in the URL bar further enhances the believability of such attacks.
 
-For example, uploading a file with the following name:
+✅ Recommendation
+To mitigate this issue, the application should validate the url parameter against a strict allowlist of trusted internal domains before loading it into the iframe. If loading external content is not a core requirement, this feature should be disabled entirely. Additionally, output should be properly sanitized before being rendered into HTML attributes like src, and a robust Content Security Policy (CSP) should be implemented to control what content can be framed or loaded from external sources.
 
-html
-Copy
-Edit
-"><script>alert('XSS')</script>.jpg
-resulted in the payload being executed as soon as the task page was visited, confirming the presence of a Stored XSS vulnerability.
-
-This indicates that the application directly renders user-supplied input (the file name) into the DOM without proper HTML encoding or sanitization.
-
-⚠️ Impact:
-An attacker can exploit this vulnerability to:
-
-Execute arbitrary JavaScript in the browser of any user who views the affected page.
-
-Steal session cookies or sensitive information.
-
-Perform actions on behalf of users (e.g., changing settings, submitting forms).
-
-Launch further attacks such as phishing or malware delivery.
-
-If an admin or privileged user views the page, the attacker may escalate their access or gain control over administrative functions.
-
-✅ Recommendation:
-To mitigate this vulnerability:
-
-Always sanitize and encode user-supplied input before rendering it in the HTML context.
-
-Use frameworks or libraries that automatically handle output encoding.
-
-Apply context-aware output encoding (e.g., HTML entity encoding for innerHTML, JavaScript escaping for inline scripts, etc.).
-
-Conduct regular security reviews and testing to catch XSS in dynamic parts of the UI.
