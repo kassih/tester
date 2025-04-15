@@ -1,3 +1,5 @@
+External Content Injection via Unrestricted Iframe Source
+
 Description
 The application includes a url parameter that is used to dynamically load external content into an iframe without any domain validation or restrictions. This allows an attacker to embed a malicious or phishing website within the trusted application’s interface by simply supplying a crafted URL such as "http://portalprocesosqa.axa.com.mx/ProcessPortal/jsp/socialPortal/dashboard.jsp?url=//evil.com". While the malicious content is rendered, the browser's address bar continues to display the legitimate domain, which can mislead users into thinking they are interacting with a trusted page. This behavior poses a significant risk of phishing, brand impersonation, and user deception, as it enables attackers to present harmful content under the appearance of a legitimate site.
 
