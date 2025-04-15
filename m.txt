@@ -1,0 +1,69 @@
+Unrestricted File Upload vulnerabilities occur when a web application fails to properly validate or restrict the types of files users can upload. This allows attackers to upload malicious files, such as scripts, executables, or specially crafted HTML files, which can then be executed on the server or client side.
+
+In this case, the server accepted file uploads without enforcing proper file type validation, MIME type checking, or content inspection. This lack of controls may lead to severe security implications including Cross-Site Scripting (XSS), Remote Code Execution (RCE), or full server compromise depending on the server configuration and file handling logic.
+
+🔍 Observation:
+During testing, it was observed that the file upload functionality allowed the upload of arbitrary files without restrictions on extension or content type. An attacker can upload a file such as xss.html containing the following payload:
+
+html
+Copy
+Edit
+<img src=x onerror=alert('XSS')>
+Once the file is uploaded, it is accessible through a public URL (e.g., https://example.com/uploads/xss.html). When this URL is accessed in a browser, the XSS payload is executed, confirming the vulnerability.
+
+This confirms that:
+
+The server does not validate file extensions or MIME types correctly.
+
+There is no content inspection or sanitization of uploaded files.
+
+Uploaded files are served directly without any security checks.
+
+⚠️ Impact:
+The impact of unrestricted file upload can vary depending on what is done with the uploaded files. In this specific case, it allowed the attacker to host a malicious HTML file which leads to Stored Cross-Site Scripting (XSS) when accessed. This can result in:
+
+Session hijacking
+
+Credential theft
+
+Redirection to malicious websites
+
+Full control over the user's interaction with the application
+
+If additional server-side parsing or execution is involved, the impact could escalate to Remote Code Execution (RCE) or compromise of the server.
+
+✅ Recommendation:
+To mitigate this vulnerability, it is recommended to implement the following controls:
+
+Restrict allowed file types to only those necessary (e.g., .jpg, .png, .pdf), based on whitelisting.
+
+Validate file MIME types on both client and server sides.
+
+Inspect file content to ensure it matches the expected type.
+
+Rename uploaded files and remove any user-supplied extensions or names to prevent direct access.
+
+Store files outside the web root, or serve them through a handler that performs additional validation.
+
+Apply appropriate Content Security Policy (CSP) headers to mitigate XSS in case an attacker manages to bypass restrictions.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
