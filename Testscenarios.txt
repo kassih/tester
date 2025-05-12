@@ -1,24 +1,43 @@
-src/main/java/com/example/githubpost
+spring-petclinic/
+└── src/main/java/org/springframework/samples/petclinic
     ├── GithubPostApplication.java
-    └── GithubPostService.java
-1. Spring Boot Main Application (GithubPostApplication.java)
+    └── service/GithubPostService.java
 
 
 
-CODE
+1. Main Application (GithubPostApplication.java)
 
 
 
-package com.example.githubpost;
+
+/*
+ * Copyright 2012-2019 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.springframework.samples.petclinic;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.samples.petclinic.service.GithubPostService;
 
 /**
- * Spring Boot application to send a POST request to GitHub Gists API.
+ * Spring Boot application for sending a POST request to GitHub Gists.
  * Author: hamid ben
  */
 @SpringBootApplication
@@ -28,23 +47,32 @@ public class GithubPostApplication {
     private GithubPostService githubPostService;
 
     public static void main(String[] args) {
-        SpringApplication.run(GithubPostApplication.class, args);
+        ApplicationContext context = SpringApplication.run(GithubPostApplication.class, args);
+        GithubPostApplication app = context.getBean(GithubPostApplication.class);
+        app.runUploader();
     }
 
     @Bean
     CommandLineRunner run() {
         return args -> githubPostService.sendPostRequest();
     }
+
+    public void runUploader() {
+        githubPostService.sendPostRequest();
+    }
 }
-2. Service for Sending POST Request (GithubPostService.java)
-
-
-CODE 
 
 
 
 
-package com.example.githubpost;
+
+
+2. Service Class (GithubPostService.java)
+
+
+
+
+package org.springframework.samples.petclinic.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpEntity;
@@ -59,7 +87,7 @@ import org.springframework.web.client.RestTemplate;
 @Service
 public class GithubPostService {
 
-    private static final String TOKEN = "GITHUB TOKEN";
+    private static final String TOKEN = "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";
     private static final String API_URL = "https://api.github.com/gists";
     private static final String DESCRIPTION = "Simple Hi Message";
     private static final String FILENAME = "hi.txt";
@@ -94,3 +122,22 @@ public class GithubPostService {
                 DESCRIPTION, FILENAME, CONTENT);
     }
 }
+
+
+
+
+
+3. Dependencies (pom.xml):
+Add the necessary dependencies to your pom.xml:
+
+
+<dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+</dependencies>
