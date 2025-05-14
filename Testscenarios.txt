@@ -1,62 +1,56 @@
-/*
- * Copyright 2012-2019 the original author or authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.springframework.samples.petclinic;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
+
 /**
- * PetClinic Spring Boot Application.
- * Modified to execute 'whoami' command on startup.
- * 
- * Author: Dave Syer, Modified by: hamid ben
+ * PetClinic Spring Boot Application with Domain Reachability Checker.
  */
 @SpringBootApplication
 @ImportRuntimeHints(PetClinicRuntimeHints.class)
 public class PetClinicApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(PetClinicApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(PetClinicApplication.class, args);
+        checkWhitelistedDomains();
+    }
 
-	@Bean
-	public CommandLineRunner runWhoami() {
-		return args -> {
-			try {
-				Process process = new ProcessBuilder("whoami").start();
-				try (BufferedReader reader = new BufferedReader(
-						new InputStreamReader(process.getInputStream()))) {
-					String line;
-					System.out.println("🔎 Output of 'whoami':");
-					while ((line = reader.readLine()) != null) {
-						System.out.println("➡️ " + line);
-					}
-				}
-				process.waitFor();
-			}
-			catch (Exception e) {
-				System.err.println("❌ Error running 'whoami': " + e.getMessage());
-			}
-		};
-	}
+    private static void checkWhitelistedDomains() {
+        List<String> domains = Arrays.asList(
+            "*.amazonaws.com", "*.anchore.io", "github.com", "*.github.com",
+            "*.githubusercontent.com", "galaxy.ansible.com", "*.npmjs.org", "npmjs.org",
+            "nodejs.org", "*.snyk.io", "snyk.io", "golang.org", "*.golang.org",
+            "code.gitea.io", "go.dev", "gopkg.in", "go.googlesource.com",
+            "cloud.google.com", "dl.google.com", "go.opencensus.io", "gocloud.dev",
+            "storage.googleapis.com", "*.maven.org", "*.maven.apache.org", "maven.org",
+            "dlcdn.apache.org", "pypi.python.org", "pypi.org", "files.pythonhosted.org",
+            "*.hashicorp.com", "registry.terraform.io", "*.redhat.com", "*.redhat.io",
+            "cdn.redhat.com", "*.cdn.redhat.com", "cdn-ubi.redhat.com",
+            "*.quay.io", "quay.io", "*.gcr.io", "gcr.io", "ghcr.io"
+        );
+
+        System.out.println("Starting whitelist domain check:");
+        for (String domain : domains) {
+            String cleaned = domain.replace("*.", "www.");
+            try {
+                URL url = new URL("https://" + cleaned);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(3000);
+                conn.connect();
+
+                int code = conn.getResponseCode();
+                System.out.println("[+] " + cleaned + " is reachable (Status: " + code + ")");
+            } catch (IOException e) {
+                System.out.println("[-] " + cleaned + " unreachable: " + e.getMessage());
+            }
+        }
+    }
 }
