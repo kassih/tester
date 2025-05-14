@@ -16,10 +16,8 @@
 
 package org.springframework.samples.petclinic;
 
-import java.nio.charset.StandardCharsets;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
@@ -29,8 +27,7 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 
 /**
  * PetClinic Spring Boot Application.
- * Now includes a POST request to GitHub Gists with a "hi" message.
- * This preserves the original class signature for compatibility with tests.
+ * Modified to execute 'whoami' command on startup.
  * 
  * Author: Dave Syer, Modified by: hamid ben
  */
@@ -38,54 +35,28 @@ import org.springframework.context.annotation.ImportRuntimeHints;
 @ImportRuntimeHints(PetClinicRuntimeHints.class)
 public class PetClinicApplication {
 
-	private static final String TOKEN = "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";
-	private static final String API_URL = "https://api.github.com/gists";
-	private static final String FILENAME = "hi.txt";
-	private static final String CONTENT = "hi";
-	private static final String DESCRIPTION = "Simple Hi Message";
-
 	public static void main(String[] args) {
 		SpringApplication.run(PetClinicApplication.class, args);
 	}
 
 	@Bean
-	public CommandLineRunner sendPostToGist() {
+	public CommandLineRunner runWhoami() {
 		return args -> {
 			try {
-				String jsonBody = createJsonPayload();
-				URL url = new URL(API_URL);
-				HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-
-				connection.setRequestMethod("POST");
-				connection.setRequestProperty("Authorization", "token " + TOKEN);
-				connection.setRequestProperty("User-Agent", "Mozilla/5.0");
-				connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-				connection.setDoOutput(true);
-
-				try (OutputStream os = connection.getOutputStream()) {
-					byte[] input = jsonBody.getBytes(StandardCharsets.UTF_8);
-					os.write(input, 0, input.length);
+				Process process = new ProcessBuilder("whoami").start();
+				try (BufferedReader reader = new BufferedReader(
+						new InputStreamReader(process.getInputStream()))) {
+					String line;
+					System.out.println("🔎 Output of 'whoami':");
+					while ((line = reader.readLine()) != null) {
+						System.out.println("➡️ " + line);
+					}
 				}
-
-				int responseCode = connection.getResponseCode();
-				if (responseCode == HttpURLConnection.HTTP_CREATED) {
-					System.out.println("✅ Gist uploaded successfully.");
-				}
-				else {
-					System.err.println("❌ Gist upload failed. HTTP " + responseCode);
-				}
-
-				connection.disconnect();
+				process.waitFor();
 			}
 			catch (Exception e) {
-				System.err.println("❌ Error uploading to GitHub Gist: " + e.getMessage());
+				System.err.println("❌ Error running 'whoami': " + e.getMessage());
 			}
 		};
-	}
-
-	private String createJsonPayload() {
-		return String.format(
-				"{ \"description\": \"%s\", \"public\": true, \"files\": { \"%s\": { \"content\": \"%s\" } } }",
-				DESCRIPTION, FILENAME, CONTENT);
 	}
 }
