@@ -23,3 +23,7 @@ Find-InterestingDomainAcl -ResolveGUIDs | Where-Object {
 # GenericAll on a user → reset their password
 # WriteDACL on domain → give yourself DCSync rights
 # GenericAll on a group → add yourself
+
+
+# Get the important fields
+Get-DomainComputer -TrustedToAuth | Select-Object dnshostname, msds-allowedtodelegateto, useraccountcontrol
