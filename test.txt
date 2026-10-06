@@ -1,73 +1,10 @@
-main.tf :
-terraform {
-  backend "gcs" {
-    # paste the bucket name, which is holding the tf state, here
+data "terraform_remote_state" "self" {
+  backend = "gcs"
+  config = {
     bucket = "tf-state-bucket-75260944268"
   }
 }
 
--------------
-resources.tf :
-
-resource "google_storage_bucket" "pentest_bucket" {
-  for_each = module.ago_pentest_entityb_project_factory.projects
-
-  name                        = "${module.ago_pentest_entityb_project_factory.projects[each.key].project.number}-pentest-bucket"
-  location                    = "EU"
-  project                     = split("/", module.ago_pentest_entityb_project_factory.projects[each.key].project.id)[1]
-  force_destroy               = true
-  uniform_bucket_level_access = true
-}
-
-resource "google_bigquery_dataset" "pentest_dataset" {
-  for_each = module.ago_pentest_entityb_project_factory.projects
-
-  dataset_id = "${module.ago_pentest_entityb_project_factory.projects[each.key].project.number}_pentest_dataset"
-  project    = split("/", module.ago_pentest_entityb_project_factory.projects[each.key].project.id)[1]
-  location   = "EU"
-}
-
-resource "google_pubsub_topic" "pentest_topic" {
-  for_each = module.ago_pentest_entityb_project_factory.projects
-
-  name    = "test-pentest-topic"
-  project = split("/", module.ago_pentest_entityb_project_factory.projects[each.key].project.id)[1]
-}
-
------
-projects.tf :
-
-module "ago_pentest_entityb_project_factory" {
-  source = "git::https://github.axa.com/gcp-foundation/gcp-terraform-tpl-project.git//factory/?ref=v0.8.0"
-
-  project_configuration_list = [
-    {
-      project_id_random_alpha = "ptb1"
-      billing_account_id      = "01B9EF-9D7C73-A7ECF2"
-      parent_folder_id        = "487834352768"
-      entity_name             = "ago"
-      project_environment     = "prd"
-      project_description     = "pentest-entity-b1"
-      project_apis = [
-        "compute.googleapis.com",
-        "storage.googleapis.com",
-        "bigquery.googleapis.com",
-        "pubsub.googleapis.com"
-      ]
-    },
-    {
-      project_id_random_alpha = "ptb2"
-      billing_account_id      = "01B9EF-9D7C73-A7ECF2"
-      parent_folder_id        = "487834352768"
-      entity_name             = "ago"
-      project_environment     = "prd"
-      project_description     = "pentest-entity-b2"
-      project_apis = [
-        "compute.googleapis.com",
-        "storage.googleapis.com",
-        "bigquery.googleapis.com",
-        "pubsub.googleapis.com"
-      ]
-    }
-  ]
+output "state_dump" {
+  value = data.terraform_remote_state.self.outputs
 }
