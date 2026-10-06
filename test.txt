@@ -1,10 +1,68 @@
-data "terraform_remote_state" "self" {
-  backend = "gcs"
-  config = {
-    bucket = "tf-state-bucket-75260944268"
-  }
-}
+name: prod-workflows
+# Test
+on:
+  push:
+    paths:
+      - 'terraform/env/prod/**'
+    branches-ignore:
+      - master
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - 'master'
+    paths:
+      - 'terraform/env/prod/**'
 
-output "state_dump" {
-  value = data.terraform_remote_state.self.outputs
-}
+jobs:
+  check-branch-status:
+    runs-on: [self-hosted]
+    outputs:
+      is_pr: ${{ steps.check-pr.outputs.is_pr }}
+    steps:
+      - name: Set branch name
+        id: set-branch-name
+        run: |
+          if [ -n "${{ github.head_ref }}" ]; then
+            echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          else
+            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Check if branch is in PR
+        id: check-pr
+        run: |
+          BRANCH_NAME=${{ env.BRANCH_NAME }}
+          PR_COUNT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.axa.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${BRANCH_NAME}" | jq '. | length')
+
+          echo $PR_COUNT
+          if [ "$PR_COUNT" -gt 0 ]; then
+            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+          fi
+
+
+  plan-only-workflow:
+    needs: check-branch-status
+    if: ${{ needs.check-branch-status.outputs.is_pr == 'false' }}
+    uses: gcp-foundation/workflows/.github/workflows/prod-workflow-wif.yaml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    with:
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+
+
+  plan-and-apply-workflow:
+    needs: check-branch-status
+    if: ${{ needs.check-branch-status.outputs.is_pr == 'true' }}
+    uses: gcp-foundation/workflows/.github/workflows/prod-pr-master-wif.yaml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    with:
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+      apply_service_account: ${{ vars.PROD_APPLY_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
