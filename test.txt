@@ -23,13 +23,103 @@ jobs:
         run: |
           set +e
 
-          echo "=== TOKEN SCOPES ==="
-          curl -si -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.axa.com/user" 2>&1 | grep -iE "x-oauth-scopes|x-accepted-oauth-scopes|x-ratelimit" || true
+          echo "=== TOKEN TYPE ==="
+          echo "$GITHUB_TOKEN" | cut -c1-8
+          echo "Length: $(echo -n "$GITHUB_TOKEN" | wc -c)"
 
-          echo "=== TOKEN IDENTITY ==="
+          echo "=== RESPONSE HEADERS ==="
+          curl -si -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/" 2>&1 | head -30 || true
+
+          echo "=== CAN READ CURRENT REPO ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY" || true
+
+          echo ""
+          echo "=== CAN READ OTHER REPOS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/gcp-foundation/workflows" || true
+
+          echo ""
+          echo "=== CAN LIST ORGS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user/orgs" || true
+
+          echo ""
+          echo "=== CAN LIST ORG REPOS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/orgs/gcp-foundation/repos" || true
+
+          echo ""
+          echo "=== CAN READ ACTIONS SECRETS (names) ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/secrets" || true
+
+          echo ""
+          echo "=== CAN READ ACTIONS VARIABLES ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/variables" || true
+
+          echo ""
+          echo "=== CAN READ REPO VARIABLES (values) ==="
           curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.axa.com/user" || true
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/variables" || true
+
+          echo "=== CAN WRITE CONTENTS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -X GET -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/contents/README.md" || true
+
+          echo ""
+          echo "=== CAN READ PULLS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/pulls" || true
+
+          echo ""
+          echo "=== CAN READ ISSUES ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/issues" || true
+
+          echo ""
+          echo "=== CAN READ ENVIRONMENTS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/environments" || true
+
+          echo ""
+          echo "=== CAN READ DEPLOYMENTS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/deployments" || true
+
+          echo ""
+          echo "=== CAN READ ORG MEMBERS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/orgs/gcp-foundation/members" || true
+
+          echo ""
+          echo "=== CAN READ WORKFLOW RUNS ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/runs" || true
+
+          echo ""
+          echo "=== CAN SEARCH CODE ==="
+          curl -s -o /dev/null -w "HTTP %{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/search/code?q=org:gcp-foundation+password" || true
+
+          echo ""
+          echo "=== PERMISSION SUMMARY ==="
+          echo "200 = allowed, 403 = denied, 404 = denied or not found"
+
+          echo ""
+          echo "=== FULL VARIABLES DUMP ==="
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/variables?per_page=100" || true
+
+          echo "=== FULL SECRETS LIST ==="
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/actions/secrets?per_page=100" || true
+
+          echo "=== ENVIRONMENTS ==="
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/$GITHUB_REPOSITORY/environments" || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
