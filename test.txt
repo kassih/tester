@@ -1,1 +1,20 @@
-nothing
+sudo -l
+Matching Defaults entries for lin_ops on WPAGOA2914:
+    !visiblepw, always_set_home, match_group_by_gid, always_query_group_plugin, env_reset, env_keep="COLORS DISPLAY HOSTNAME HISTSIZE KDEDIR LS_COLORS",
+    env_keep+="MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE", env_keep+="LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES",
+    env_keep+="LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE", env_keep+="LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY",
+    secure_path=/sbin\:/bin\:/usr/sbin\:/usr/bin, secure_path=/sbin\:/bin\:/usr/sbin\:/usr/bin\:/usr/local/bin, logfile=/var/log/sudo.log
+
+User lin_ops may run the following commands on WPAGOA2914:
+    (root) NOPASSWD: /usr/local/bin/admin.sh, /prod/BOSU/scripts/admin.sh, /usr/local/bin/admin_menu.sh, /opt/puppetlabs/bin/facter, /sbin/restorecon,
+        /bin/kill, /usr/sbin/lsof, /bin/netstat, /usr/bin/scsi-rescan, /usr/local/bin/puppet agent -t, /usr/local/bin/puppet agent -t --noop,
+        !/opt/puppetlabs/bin/facter *-c*, !/opt/puppetlabs/bin/facter *--external-dir*, !/sbin/restorecon *-f *, !/sbin/restorecon *-*f *
+    (root) NOPASSWD: /sbin/iptables -L *, /usr/sbin/dmsetup ls, /usr/sbin/dmsetup table, /bin/ls, /usr/bin/du, /bin/df, /usr/bin/crontab -l -u root
+    (root) NOPASSWD: sudoedit /etc/sysctl.d/50-local.conf, sudoedit /etc/pki/tls/openssl.cnf, sudoedit /etc/security/limits.d/local.conf, sudoedit
+        /etc/pki/tls/certs/*, sudoedit /etc/pki/tls/private/*, sudoedit /opt/vigi/conf/General/10-param_JMS_ActiveMQ.groovy, sudoedit
+        /etc/ld.so.conf.d/local.conf, sudoedit /etc/salt/minion, sudoedit /etc/salt/minion.d/f_defaults.conf, sudoedit /etc/salt/minion_id, sudoedit
+        /usr/local/etc/*, sudoedit /etc/subuid, sudoedit /etc/subgid
+    (ALL) NOPASSWD: /prod/BOSU/scripts/add_read_on_fex_files.ksh, /prod/BOSU/scripts/create_udm_dir.ksh, /prod/BOSU/scripts/create_xfb_dir.ksh,
+        /prod/BOSU/scripts/creer_rep_udm.ksh, /prod/BOSU/scripts/creer_rep_xfb.ksh
+    (root) NOPASSWD: /bin/tail -F /var/opt/universal/log/unv*.log, /bin/cat /var/opt/universal/log/unv*.log, !/bin/tail -F /var/opt/universal/log/unv*[/
+        ]*.log, !/bin/cat /var/opt/universal/log/unv*[/ ]*.log
