@@ -1,0 +1,1 @@
+WISE is a web application designed for insurance-agency back-office management — enabling Nobis agents and sub-agencies to administer policies, quotes, claims, customers and documents through a centralized production system, including the vehicle/policy database and attachment-management workflows
